@@ -6,7 +6,7 @@ import openpyxl
 import os
 
 players = pd.read_csv(
-    r"draftkings.csv", usecols=["Player", "DK Position", "DK Projection", "DK Salary"]
+    r"draftkings.csv", usecols=["Player", "DK Position", "DK Projection", "DK Salary"],
 )
 
 wb = openpyxl.Workbook()
@@ -40,12 +40,12 @@ three_rb = {"QB": 1, "RB": 3, "WR": 3, "TE": 1, "DST": 1}
 two_te = {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "DST": 1}
 
 salary_cap = 50000
-max_rows = 11
+max_rows = 15
 
 
 def calculate(lineup_type, file_name):
     total_score = 0
-    for lineup in range(1, max_rows):
+    for lineup in range(1, max_rows + 1):
         _vars = {k: LpVariable.dict(k, v, cat="Binary") for k, v in points.items()}
 
         prob = LpProblem("Fantasy", LpMaximize)
@@ -79,8 +79,8 @@ def calculate(lineup_type, file_name):
     pd.read_excel(file_name + ".xlsx").to_csv(file_name + ".csv", index=False)
 
 
-calculate(four_wr, "four_wr")
 calculate(three_rb, "three_rb")
+calculate(four_wr, "four_wr")
 calculate(two_te, "two_te")
 
 path = os.getcwd()
@@ -95,9 +95,9 @@ excl_list = []
 for idx, file in enumerate(file_list):
     excl_list.append(pd.read_csv(file))  # , header=0 if idx == 0 else None
 
-excl_merged = pd.DataFrame()
+# excl_merged = pd.DataFrame()
 
-for excl_file in excl_list:
-    excl_merged = pd.concat([excl_merged, excl_file], ignore_index=False)
+# for excl_file in excl_list:
+#     excl_merged = pd.concat([excl_merged, excl_file], ignore_index=False)
 
-excl_merged.to_csv("combined.csv")
+# excl_merged.to_csv("combined.csv")
