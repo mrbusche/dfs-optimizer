@@ -84,20 +84,9 @@ calculate(four_wr, "four_wr")
 calculate(two_te, "two_te")
 
 path = os.getcwd()
-if os.path.isfile(path + "\\combined.csv"):
-    os.remove(path + "\\combined.csv")
-
 file_list = [path + "\\four_wr.csv", path + "\\three_rb.csv", path + "\\two_te.csv"]
 print("file_list", file_list)
 excl_list = []
 
-# for file in file_list:
 for idx, file in enumerate(file_list):
     excl_list.append(pd.read_csv(file))  # , header=0 if idx == 0 else None
-
-# excl_merged = pd.DataFrame()
-
-# for excl_file in excl_list:
-#     excl_merged = pd.concat([excl_merged, excl_file], ignore_index=False)
-
-# excl_merged.to_csv("combined.csv")
