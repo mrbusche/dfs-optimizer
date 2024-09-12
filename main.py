@@ -1,12 +1,14 @@
 # https://www.youtube.com/watch?v=zibV6xaOGEA
 
-import pandas as pd
-from pulp import LpProblem, LpMaximize, LpVariable, lpSum
-import openpyxl
 import os
 
+import openpyxl
+import pandas as pd
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum
+
 players = pd.read_csv(
-    r"draftkings.csv", usecols=["Player", "DK Position", "DK Projection", "DK Salary"],
+    r"draftkings.csv",
+    usecols=["Player", "DK Position", "DK Projection", "DK Salary"],
 )
 
 wb = openpyxl.Workbook()
