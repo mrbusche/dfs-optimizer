@@ -1,94 +1,81 @@
-# https://www.youtube.com/watch?v=zibV6xaOGEA
-
-import os
-
-import openpyxl
 import pandas as pd
 from pulp import LpMaximize, LpProblem, LpVariable, lpSum
 
-players = pd.read_csv(
-    r"draftkings.csv",
-    usecols=["Player", "DK Position", "DK Projection", "DK Salary"],
-)
+# Constants
+POSITION = "DK Position"
+PROJECTION = "DK Projection"
+SALARY = "DK Salary"
+PLAYER = "Player"
 
-wb = openpyxl.Workbook()
-ws = wb.active
+SALARY_CAP = 50000
+MAX_LINEUPS = 10
 
-available_players = players.groupby(
-    ["DK Position", "Player", "DK Projection", "DK Salary"]
-).agg("count")
-available_players = available_players.reset_index()
+lineup_configs = {
+    "four_wr": {"QB": 1, "RB": 2, "WR": 4, "TE": 1, "DST": 1},
+    "three_rb": {"QB": 1, "RB": 3, "WR": 3, "TE": 1, "DST": 1},
+    "two_te": {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "DST": 1}
+}
 
-salaries = {}
-points = {}
+players = pd.read_csv("draftkings.csv", usecols=[PLAYER, POSITION, PROJECTION, SALARY])
 
-for pos in available_players["DK Position"].unique():
-    available_pos = available_players[available_players["DK Position"] == pos]
-    salary = list(
-        available_pos[["Player", "DK Salary"]].set_index("Player").to_dict().values()
-    )[0]
-    point = list(
-        available_pos[["Player", "DK Projection"]]
-        .set_index("Player")
-        .to_dict()
-        .values()
-    )[0]
+# Group players by position
+available_players = players.groupby([POSITION, PLAYER, PROJECTION, SALARY]).size().reset_index()
 
-    salaries[pos] = salary
-    points[pos] = point
+# Create salary and points dicts by position
+salaries = {
+    pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[SALARY].to_dict()
+    for pos in available_players[POSITION].unique()
+}
+points = {
+    pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[PROJECTION].to_dict()
+    for pos in available_players[POSITION].unique()
+}
 
-four_wr = {"QB": 1, "RB": 2, "WR": 4, "TE": 1, "DST": 1}
-three_rb = {"QB": 1, "RB": 3, "WR": 3, "TE": 1, "DST": 1}
-two_te = {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "DST": 1}
-
-salary_cap = 50000
-max_rows = 15
-
-
-def calculate(lineup_type, file_name):
+def calculate_lineups(lineup_type, output_file):
     total_score = 0
-    for lineup in range(1, max_rows + 1):
-        _vars = {k: LpVariable.dict(k, v, cat="Binary") for k, v in points.items()}
+    lineup_results = []
+
+    for lineup_num in range(1, MAX_LINEUPS + 1):
+        player_vars = {pos: LpVariable.dicts(pos, players, cat="Binary") for pos, players in points.items()}
 
         prob = LpProblem("Fantasy", LpMaximize)
-        rewards = []
-        costs = []
+        prob += lpSum([points[pos][player] * player_vars[pos][player] for pos in player_vars for player in player_vars[pos]])
+        prob += lpSum([salaries[pos][player] * player_vars[pos][player] for pos in player_vars for player in player_vars[pos]]) <= SALARY_CAP
 
-        for k, v in _vars.items():
-            costs += lpSum([salaries[k][i] * _vars[k][i] for i in v])
-            rewards += lpSum([points[k][i] * _vars[k][i] for i in v])
-            prob += lpSum([_vars[k][i] for i in v]) == lineup_type[k]
+        # Enforce lineup constraints (how many players from each position)
+        for pos, count in lineup_type.items():
+            prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count
 
-        prob += lpSum(rewards)
-        prob += lpSum(costs) <= salary_cap
-        if lineup != 1:
-            prob += lpSum(rewards) <= total_score - 0.001
+        # Ensure each new lineup has a lower score than the previous
+        if lineup_num > 1:
+            prob += lpSum([points[pos][player] * player_vars[pos][player] for pos in player_vars for player in player_vars[pos]]) <= total_score - 0.001
+
         prob.solve()
 
-        score = str(prob.objective)
-        column_number = 1
+        lineup = {
+            "Lineup #": lineup_num
+        }
+        total_score = 0
+        column_count = 1
 
-        for v in prob.variables():
-            score = score.replace(v.name, str(v.varValue))
-            if v.varValue != 0:
-                ws.cell(row=lineup, column=column_number).value = v.name
-                column_number += 1
+        for pos in player_vars:
+            for player, var in player_vars[pos].items():
+                if var.varValue == 1:
+                    # Adding player details in a structured way for each position
+                    lineup[f"Player {column_count} Position"] = pos
+                    lineup[f"Player {column_count} Name"] = player
+                    lineup[f"Player {column_count} Salary"] = salaries[pos][player]
+                    lineup[f"Player {column_count} Projected Points"] = points[pos][player]
+                    total_score += points[pos][player]
+                    column_count += 1
 
-        total_score = eval(score)
-        ws.cell(row=lineup, column=column_number).value = total_score
+        lineup["Total Score"] = total_score
+        lineup_results.append(lineup)
 
-    wb.save(file_name + ".xlsx")
-    pd.read_excel(file_name + ".xlsx").to_csv(file_name + ".csv", index=False)
+    pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
 
+# Calculate lineups for each configuration
+for lineup_name, lineup_type in lineup_configs.items():
+    calculate_lineups(lineup_type, lineup_name)
 
-calculate(three_rb, "three_rb")
-calculate(four_wr, "four_wr")
-calculate(two_te, "two_te")
-
-path = os.getcwd()
-file_list = [path + "\\four_wr.csv", path + "\\three_rb.csv", path + "\\two_te.csv"]
-print("file_list", file_list)
-excl_list = []
-
-for idx, file in enumerate(file_list):
-    excl_list.append(pd.read_csv(file))  # , header=0 if idx == 0 else None
+print("Lineup files created")
