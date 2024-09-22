@@ -59,6 +59,7 @@ def calculate_lineups(lineup_type, output_file):
             "Lineup #": lineup_num
         }
         total_score = 0
+        total_salary = 0
         column_count = 1
 
         for pos in player_vars:
@@ -70,8 +71,10 @@ def calculate_lineups(lineup_type, output_file):
                     lineup[f"Player {column_count} Salary"] = salaries[pos][player]
                     lineup[f"Player {column_count} Projected Points"] = points[pos][player]
                     total_score += points[pos][player]
+                    total_salary += salaries[pos][player]
                     column_count += 1
 
+        lineup["Total Salary"] = total_salary
         lineup["Total Score"] = '{0:.1f}'.format(total_score)
         lineup_results.append(lineup)
 
