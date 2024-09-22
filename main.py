@@ -11,6 +11,15 @@ PROJECTION = "DK Projection"
 SALARY = "DK Salary"
 PLAYER = "Player"
 
+salaries = {}
+points = {}
+
+salary_cap = 50000
+max_rows = 15
+four_wr = {"QB": 1, "RB": 2, "WR": 4, "TE": 1, "DST": 1}
+three_rb = {"QB": 1, "RB": 3, "WR": 3, "TE": 1, "DST": 1}
+two_te = {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "DST": 1}
+
 players = pd.read_csv(
     r"draftkings.csv",
     usecols=[PLAYER, POSITION, PROJECTION, SALARY],
@@ -22,27 +31,14 @@ ws = wb.active
 available_players = players.groupby([POSITION, PLAYER, PROJECTION, SALARY]).agg("count")
 available_players = available_players.reset_index()
 
-salaries = {}
-points = {}
-
 for pos in available_players[POSITION].unique():
     available_pos = available_players[available_players[POSITION] == pos]
-    salary = list(available_pos[[PLAYER, SALARY]].set_index(PLAYER).to_dict().values())[
-        0
-    ]
-    point = list(
+    salaries[pos] = list(
+        available_pos[[PLAYER, SALARY]].set_index(PLAYER).to_dict().values()
+    )[0]
+    points[pos] = list(
         available_pos[[PLAYER, PROJECTION]].set_index(PLAYER).to_dict().values()
     )[0]
-
-    salaries[pos] = salary
-    points[pos] = point
-
-four_wr = {"QB": 1, "RB": 2, "WR": 4, "TE": 1, "DST": 1}
-three_rb = {"QB": 1, "RB": 3, "WR": 3, "TE": 1, "DST": 1}
-two_te = {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "DST": 1}
-
-salary_cap = 50000
-max_rows = 15
 
 
 def calculate(lineup_type, file_name):
