@@ -6,32 +6,33 @@ import openpyxl
 import pandas as pd
 from pulp import LpMaximize, LpProblem, LpVariable, lpSum
 
+POSITION = "DK Position"
+PROJECTION = "DK Projection"
+SALARY = "DK Salary"
+
 players = pd.read_csv(
     r"draftkings.csv",
-    usecols=["Player", "DK Position", "DK Projection", "DK Salary"],
+    usecols=["Player", POSITION, PROJECTION, SALARY],
 )
 
 wb = openpyxl.Workbook()
 ws = wb.active
 
-available_players = players.groupby(
-    ["DK Position", "Player", "DK Projection", "DK Salary"]
-).agg("count")
+available_players = players.groupby([POSITION, "Player", PROJECTION, SALARY]).agg(
+    "count"
+)
 available_players = available_players.reset_index()
 
 salaries = {}
 points = {}
 
-for pos in available_players["DK Position"].unique():
-    available_pos = available_players[available_players["DK Position"] == pos]
+for pos in available_players[POSITION].unique():
+    available_pos = available_players[available_players[POSITION] == pos]
     salary = list(
-        available_pos[["Player", "DK Salary"]].set_index("Player").to_dict().values()
+        available_pos[["Player", SALARY]].set_index("Player").to_dict().values()
     )[0]
     point = list(
-        available_pos[["Player", "DK Projection"]]
-        .set_index("Player")
-        .to_dict()
-        .values()
+        available_pos[["Player", PROJECTION]].set_index("Player").to_dict().values()
     )[0]
 
     salaries[pos] = salary
