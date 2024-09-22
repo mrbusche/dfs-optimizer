@@ -17,6 +17,9 @@ lineup_configs = {
 }
 
 players = pd.read_csv("draftkings.csv", usecols=[PLAYER, POSITION, PROJECTION, SALARY])
+# trim whitespace from columns
+players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
+
 
 # Group players by position
 available_players = players.groupby([POSITION, PLAYER, PROJECTION, SALARY]).size().reset_index()
@@ -69,7 +72,7 @@ def calculate_lineups(lineup_type, output_file):
                     total_score += points[pos][player]
                     column_count += 1
 
-        lineup["Total Score"] = total_score
+        lineup["Total Score"] = '{0:.1f}'.format(total_score)
         lineup_results.append(lineup)
 
     pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
