@@ -35,8 +35,8 @@ points = {
 }
 
 def calculate_lineups(lineup_type, output_file):
-    total_score = 0
     lineup_results = []
+    previous_lineups = []
 
     for lineup_num in range(1, MAX_LINEUPS + 1):
         player_vars = {pos: LpVariable.dicts(pos, players, cat="Binary") for pos, players in points.items()}
@@ -49,11 +49,20 @@ def calculate_lineups(lineup_type, output_file):
         for pos, count in lineup_type.items():
             prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count
 
-        # Ensure each new lineup has a lower score than the previous
-        if lineup_num > 1:
-            prob += lpSum([points[pos][player] * player_vars[pos][player] for pos in player_vars for player in player_vars[pos]]) <= total_score - 0.001
+        # Add each unique lineup only once
+        for prev_lineup in previous_lineups:
+            prob += lpSum([player_vars[pos][player] for pos, player in prev_lineup]) <= len(prev_lineup) - 1
 
         prob.solve()
+
+        current_lineup_players = [(pos, player) for pos in player_vars for player, var in player_vars[pos].items() if var.varValue == 1]
+
+        # break when we run out of unique lineups
+        if not current_lineup_players:
+            break
+
+        # Add the current lineup's players to the list of previous lineups
+        previous_lineups.append(current_lineup_players)
 
         lineup = {
             "Lineup #": lineup_num
@@ -62,17 +71,14 @@ def calculate_lineups(lineup_type, output_file):
         total_salary = 0
         column_count = 1
 
-        for pos in player_vars:
-            for player, var in player_vars[pos].items():
-                if var.varValue == 1:
-                    # Adding player details in a structured way for each position
-                    lineup[f"Player {column_count} Position"] = pos
-                    lineup[f"Player {column_count} Name"] = player
-                    lineup[f"Player {column_count} Salary"] = salaries[pos][player]
-                    lineup[f"Player {column_count} Projected Points"] = points[pos][player]
-                    total_score += points[pos][player]
-                    total_salary += salaries[pos][player]
-                    column_count += 1
+        for pos, player in current_lineup_players:
+            lineup[f"Player {column_count} Position"] = pos
+            lineup[f"Player {column_count} Name"] = player
+            lineup[f"Player {column_count} Salary"] = salaries[pos][player]
+            lineup[f"Player {column_count} Projected Points"] = points[pos][player]
+            total_score += points[pos][player]
+            total_salary += salaries[pos][player]
+            column_count += 1
 
         lineup["Total Salary"] = total_salary
         lineup["Total Score"] = '{0:.1f}'.format(total_score)
@@ -80,8 +86,7 @@ def calculate_lineups(lineup_type, output_file):
 
     pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
 
-# Calculate lineups for each configuration
-for lineup_name, lineup_type in lineup_configs.items():
-    calculate_lineups(lineup_type, lineup_name)
+for name, config in lineup_configs.items():
+    calculate_lineups(config, name)
 
 print("Lineup files created")
