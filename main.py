@@ -16,25 +16,24 @@ lineup_configs = {
     "two_te": {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "DST": 1}
 }
 
-players = pd.read_csv("draftkings.csv", usecols=[PLAYER, POSITION, PROJECTION, SALARY])
-# trim whitespace from columns
-players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
+def calculate_lineups(lineup_type, output_file, csv_file):
+    players = pd.read_csv(csv_file, usecols=[PLAYER, POSITION, PROJECTION, SALARY])
+    # trim whitespace from columns
+    players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
+    # Group players by position
+    available_players = players.groupby([POSITION, PLAYER, PROJECTION, SALARY]).size().reset_index()
 
-# Group players by position
-available_players = players.groupby([POSITION, PLAYER, PROJECTION, SALARY]).size().reset_index()
+    # Create salary and points dicts by position
+    salaries = {
+        pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[SALARY].to_dict()
+        for pos in available_players[POSITION].unique()
+    }
+    points = {
+        pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[PROJECTION].to_dict()
+        for pos in available_players[POSITION].unique()
+    }
 
-# Create salary and points dicts by position
-salaries = {
-    pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[SALARY].to_dict()
-    for pos in available_players[POSITION].unique()
-}
-points = {
-    pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[PROJECTION].to_dict()
-    for pos in available_players[POSITION].unique()
-}
-
-def calculate_lineups(lineup_type, output_file):
     lineup_results = []
     previous_lineups = []
 
@@ -86,7 +85,14 @@ def calculate_lineups(lineup_type, output_file):
 
     pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
 
-for name, config in lineup_configs.items():
-    calculate_lineups(config, name)
 
-print("Lineup files created")
+def generate_lineup_files(csv_file):
+    for name, config in lineup_configs.items():
+        calculate_lineups(config, name, csv_file)
+
+    print("Lineup files created")
+
+
+if __name__ == "__main__":
+    csv_file = "draftkings.csv"  # You can change this to any CSV file name
+    generate_lineup_files(csv_file)
