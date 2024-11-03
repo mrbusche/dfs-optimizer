@@ -7,7 +7,7 @@ from main import generate_lineup_files
 
 @pytest.fixture(autouse=True)
 def generate_files():
-    generate_lineup_files()
+    generate_lineup_files('./draftkings.csv')
 
 
 def test_generate_lineup_files():
