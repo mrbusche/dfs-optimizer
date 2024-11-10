@@ -94,5 +94,5 @@ def generate_lineup_files(csv_file):
 
 
 if __name__ == "__main__":
-    csv_file = "draftkings.csv"  # You can change this to any CSV file name
-    generate_lineup_files(csv_file)
+    file_name = "draftkings.csv"
+    generate_lineup_files(file_name)
