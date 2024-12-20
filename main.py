@@ -1,7 +1,8 @@
-import pandas as pd
-from pulp import LpMaximize, LpProblem, LpVariable, lpSum
+import time
 
-# Constants
+import pandas as pd
+from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
+
 POSITION = "DK Position"
 PROJECTION = "DK Projection"
 SALARY = "DK Salary"
@@ -16,48 +17,52 @@ lineup_configs = {
     "two_te": {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "DST": 1}
 }
 
+
 def calculate_lineups(lineup_type, output_file, csv_file):
     players = pd.read_csv(csv_file, usecols=[PLAYER, POSITION, PROJECTION, SALARY])
     # trim whitespace from columns
     players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
-    # Group players by position
-    available_players = players.groupby([POSITION, PLAYER, PROJECTION, SALARY]).size().reset_index()
-
-    # Create salary and points dicts by position
-    salaries = {
-        pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[SALARY].to_dict()
-        for pos in available_players[POSITION].unique()
-    }
-    points = {
-        pos: available_players[available_players[POSITION] == pos].set_index(PLAYER)[PROJECTION].to_dict()
-        for pos in available_players[POSITION].unique()
-    }
+    player_data = {}
+    for _, row in players.iterrows():
+        pos = row[POSITION]
+        if pos not in player_data:
+            player_data[pos] = {}
+        player_data[pos][row[PLAYER]] = (row[PROJECTION], row[SALARY])
 
     lineup_results = []
     previous_lineups = []
 
     for lineup_num in range(1, MAX_LINEUPS + 1):
-        player_vars = {pos: LpVariable.dicts(pos, players, cat="Binary") for pos, players in points.items()}
-
         prob = LpProblem("Fantasy", LpMaximize)
-        prob += lpSum([points[pos][player] * player_vars[pos][player] for pos in player_vars for player in player_vars[pos]])
-        prob += lpSum([salaries[pos][player] * player_vars[pos][player] for pos in player_vars for player in player_vars[pos]]) <= SALARY_CAP
+
+        player_vars = {}
+        for pos, players in player_data.items():
+            player_vars[pos] = LpVariable.dicts(f"{pos}_players", players.keys(), cat="Binary")
+
+        prob += lpSum([player_data[pos][player][0] * player_vars[pos][player]
+                       for pos in player_vars for player in player_vars[pos]]), "Total_Points"
+
+        # Salary constraint
+        prob += lpSum([player_data[pos][player][1] * player_vars[pos][player]
+                       for pos in player_vars for player in player_vars[pos]]) <= SALARY_CAP, "Salary_Cap"
 
         # Enforce lineup constraints (how many players from each position)
         for pos, count in lineup_type.items():
-            prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count
+            prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count, f"{pos}_constraint"
 
         # Add each unique lineup only once
-        for prev_lineup in previous_lineups:
-            prob += lpSum([player_vars[pos][player] for pos, player in prev_lineup]) <= len(prev_lineup) - 1
+        for counter, prev_lineup in enumerate(previous_lineups):
+            prob += lpSum([player_vars[pos][player] for pos, player in prev_lineup]) <= len(
+                prev_lineup) - 1, f"unique_lineup_{lineup_num}_{counter}"
 
-        prob.solve()
+        prob.solve(PULP_CBC_CMD(msg=0))  # Suppress noisy output
 
-        current_lineup_players = [(pos, player) for pos in player_vars for player, var in player_vars[pos].items() if var.varValue == 1]
+        current_lineup_players = [(pos, player) for pos in player_vars for player, var in player_vars[pos].items() if
+                                  var.varValue == 1]
 
-        # break when we run out of unique lineups
-        if not current_lineup_players:
+        # only find unique lineups up to MAX_LINEUPS
+        if not current_lineup_players or len(previous_lineups) >= MAX_LINEUPS:
             break
 
         # Add the current lineup's players to the list of previous lineups
@@ -68,16 +73,16 @@ def calculate_lineups(lineup_type, output_file, csv_file):
         }
         total_score = 0
         total_salary = 0
-        column_count = 1
 
-        for pos, player in current_lineup_players:
+        for column_count, (pos, player) in enumerate(current_lineup_players):
+            proj, sal = player_data[pos][player]
+            column_count = column_count + 1
             lineup[f"Player {column_count} Position"] = pos
             lineup[f"Player {column_count} Name"] = player
-            lineup[f"Player {column_count} Salary"] = salaries[pos][player]
-            lineup[f"Player {column_count} Projected Points"] = points[pos][player]
-            total_score += points[pos][player]
-            total_salary += salaries[pos][player]
-            column_count += 1
+            lineup[f"Player {column_count} Salary"] = sal
+            lineup[f"Player {column_count} Projected Points"] = proj
+            total_score += proj
+            total_salary += sal
 
         lineup["Total Salary"] = total_salary
         lineup["Total Score"] = '{0:.1f}'.format(total_score)
@@ -94,5 +99,9 @@ def generate_lineup_files(csv_file):
 
 
 if __name__ == "__main__":
+    start_time = time.time()
     file_name = "draftkings.csv"
     generate_lineup_files(file_name)
+    end_time = time.time()
+
+    print(f"Total execution time: {end_time - start_time:.2f} seconds")
