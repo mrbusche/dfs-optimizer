@@ -5,6 +5,7 @@ from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
 
 POSITION = "Position"
 PROJECTION = "Points"
+TEAM = "Team"
 PLAYER = "Player"
 
 MAX_LINEUPS = 10
@@ -15,7 +16,7 @@ lineup_configs = {
 
 
 def calculate_lineups(lineup_type, output_file, csv_file):
-    players = pd.read_csv(csv_file, usecols=[PLAYER, POSITION, PROJECTION])
+    players = pd.read_csv(csv_file, usecols=[PLAYER, TEAM, POSITION, PROJECTION])
     # trim whitespace from columns
     players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
@@ -24,7 +25,7 @@ def calculate_lineups(lineup_type, output_file, csv_file):
         pos = row[POSITION]
         if pos not in player_data:
             player_data[pos] = {}
-        player_data[pos][row[PLAYER]] = (row[PROJECTION])
+        player_data[pos][row[PLAYER]] = (row[PROJECTION], row[TEAM])
 
     lineup_results = []
     previous_lineups = []
@@ -36,13 +37,21 @@ def calculate_lineups(lineup_type, output_file, csv_file):
         for pos, players in player_data.items():
             player_vars[pos] = LpVariable.dicts(f"{pos}_players", players.keys(), cat="Binary")
 
-        prob += lpSum([player_data[pos][player] * player_vars[pos][player]
-            for pos in player_vars for player in player_vars[pos]]), "Total_Points"
+        prob += lpSum([player_data[pos][player][0] * player_vars[pos][player]
+                       for pos in player_vars for player in player_vars[pos]]), "Total_Points"
 
         # Enforce lineup constraints (how many players from each position)
         for pos, count in lineup_type.items():
             prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count, f"{pos}_constraint"
 
+        # One player per team
+        teams = set()
+        for pos, players in player_data.items():
+            for player, (_, team) in players.items():
+                teams.add(team)
+        for team in teams:
+            prob += lpSum([player_vars[pos][player] for pos in player_vars for player in player_vars[pos]
+                           if player_data[pos][player][1] == team]) <= 1, f"Team_{team}_constraint"
 
         # Add each unique lineup only once
         for counter, prev_lineup in enumerate(previous_lineups):
@@ -67,7 +76,7 @@ def calculate_lineups(lineup_type, output_file, csv_file):
         total_score = 0
 
         for column_count, (pos, player) in enumerate(current_lineup_players):
-            proj = player_data[pos][player]
+            proj, _ = player_data[pos][player]
             column_count = column_count + 1
             lineup[f"Player {column_count} Position"] = pos
             lineup[f"Player {column_count} Name"] = player
