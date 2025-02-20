@@ -88,7 +88,7 @@ def calculate_lineups(lineup_type, output_file, csv_file):
         lineup["Total Score"] = '{0:.1f}'.format(total_score)
         lineup_results.append(lineup)
 
-    pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
+    pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=True)
 
 
 def generate_lineup_files(csv_file):
@@ -96,6 +96,19 @@ def generate_lineup_files(csv_file):
         calculate_lineups(config, name, csv_file)
 
     print("Lineup files created")
+
+    csv_files = [f"{name}.csv" for name in lineup_configs]
+    combined_df = pd.concat([pd.read_csv(file) for file in csv_files])
+    combined_df['Total Score'] = pd.to_numeric(combined_df['Total Score'])
+    combined_df = combined_df.sort_values(by='Total Score', ascending=False)
+    combined_df.to_csv("combined_lineups.csv", index=False, header=False)
+
+    # Truncate all string columns to 12 characters
+    for col in combined_df.columns:
+        if combined_df[col].dtype == 'object':
+            combined_df[col] = combined_df[col].str[:12]
+
+    print(combined_df.to_string(index=False, header=False))
 
 
 if __name__ == "__main__":
