@@ -3,10 +3,10 @@ import time
 import pandas as pd
 from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
 
-POSITION = "DK Position"
-PROJECTION = "DK Projection"
-SALARY = "DK Salary"
-PLAYER = "Player"
+POSITION = "Position"
+PROJECTION = "Projection"
+SALARY = "Salary"
+PLAYER = "Name"
 
 SALARY_CAP = 50000
 MAX_LINEUPS = 10
@@ -102,6 +102,9 @@ def generate_lineup_files(csv_file):
     combined_df['Total Score'] = pd.to_numeric(combined_df['Total Score'])
     combined_df = combined_df.sort_values(by='Total Score', ascending=False)
     combined_df.to_csv("combined_lineups.csv", index=False, header=False)
+
+    # Limit to top 15 lineups
+    combined_df = combined_df.head(15)
 
     # Truncate all string columns to 12 characters
     for col in combined_df.columns:
