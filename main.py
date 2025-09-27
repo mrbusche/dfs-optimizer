@@ -3,10 +3,10 @@ import time
 import pandas as pd
 from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
 
-POSITION = "Position"
-PROJECTION = "Projection"
-SALARY = "Salary"
-PLAYER = "Name"
+POSITION = "DK Pos"
+PROJECTION = "DK Proj"
+SALARY = "DK Salary"
+PLAYER = "Player"
 
 SALARY_CAP = 50000
 MAX_LINEUPS = 10
