@@ -88,7 +88,7 @@ def calculate_lineups(lineup_type, output_file, csv_file):
         lineup["Total Score"] = '{0:.1f}'.format(total_score)
         lineup_results.append(lineup)
 
-    pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=True)
+    pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
 
 
 def generate_lineup_files(csv_file):
@@ -98,7 +98,16 @@ def generate_lineup_files(csv_file):
     print("Lineup files created")
 
     csv_files = [f"{name}.csv" for name in lineup_configs]
-    combined_df = pd.concat([pd.read_csv(file) for file in csv_files])
+
+    # Read files without headers and name the last two columns
+    dfs = []
+    for file in csv_files:
+        df = pd.read_csv(file, header=None)
+        n = df.shape[1]
+        df.columns = [f"col{i}" for i in range(n - 2)] + ["Total Salary", "Total Score"]
+        dfs.append(df)
+
+    combined_df = pd.concat(dfs, ignore_index=True)
     combined_df['Total Score'] = pd.to_numeric(combined_df['Total Score'])
     combined_df = combined_df.sort_values(by='Total Score', ascending=False)
     combined_df.to_csv("combined_lineups.csv", index=False, header=False)
