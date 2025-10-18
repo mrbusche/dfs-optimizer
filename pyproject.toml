@@ -1,0 +1,20 @@
+[project]
+name = "dfs-optimizer"
+version = "0.1.0"
+description = "DraftKings lineup optimizer using linear programming"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pandas==2.3.3",
+    "pulp==3.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.2",
+    "ruff==0.14.1"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
