@@ -3,8 +3,8 @@ import time
 import pandas as pd
 from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
 
-POSITION = "DK Position"
-PROJECTION = "DK Projection"
+POSITION = "DK Pos"
+PROJECTION = "DK Proj"
 SALARY = "DK Salary"
 PLAYER = "Player"
 
@@ -56,7 +56,7 @@ def calculate_lineups(lineup_type, output_file, csv_file):
             prob += lpSum([player_vars[pos][player] for pos, player in prev_lineup]) <= len(
                 prev_lineup) - 1, f"unique_lineup_{lineup_num}_{counter}"
 
-        prob.solve(PULP_CBC_CMD(msg=0))  # Suppress noisy output
+        prob.solve(PULP_CBC_CMD(msg=False))  # Suppress noisy output
 
         current_lineup_players = [(pos, player) for pos in player_vars for player, var in player_vars[pos].items() if
                                   var.varValue == 1]
@@ -96,6 +96,31 @@ def generate_lineup_files(csv_file):
         calculate_lineups(config, name, csv_file)
 
     print("Lineup files created")
+
+    csv_files = [f"{name}.csv" for name in lineup_configs]
+
+    # Read files without headers and name the last two columns
+    dfs = []
+    for file in csv_files:
+        df = pd.read_csv(file, header=None)
+        n = df.shape[1]
+        df.columns = [f"col{i}" for i in range(n - 2)] + ["Total Salary", "Total Score"]
+        dfs.append(df)
+
+    combined_df = pd.concat(dfs, ignore_index=True)
+    combined_df['Total Score'] = pd.to_numeric(combined_df['Total Score'])
+    combined_df = combined_df.sort_values(by='Total Score', ascending=False)
+    combined_df.to_csv("combined_lineups.csv", index=False, header=False)
+
+    # Limit to top 15 lineups
+    combined_df = combined_df.head(15)
+
+    # Truncate all string columns to 12 characters
+    for col in combined_df.columns:
+        if combined_df[col].dtype == 'object':
+            combined_df[col] = combined_df[col].str[:12]
+
+    print(combined_df.to_string(index=False, header=False))
 
 
 if __name__ == "__main__":
