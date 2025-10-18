@@ -56,7 +56,7 @@ def calculate_lineups(lineup_type, output_file, csv_file):
             prob += lpSum([player_vars[pos][player] for pos, player in prev_lineup]) <= len(
                 prev_lineup) - 1, f"unique_lineup_{lineup_num}_{counter}"
 
-        prob.solve(PULP_CBC_CMD(msg=0))  # Suppress noisy output
+        prob.solve(PULP_CBC_CMD(msg=False))  # Suppress noisy output
 
         current_lineup_players = [(pos, player) for pos in player_vars for player, var in player_vars[pos].items() if
                                   var.varValue == 1]
