@@ -23,6 +23,8 @@ def calculate_lineups(lineup_type, output_file, csv_file):
     # trim whitespace from columns
     players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
+    players[SALARY] = players[SALARY].str.replace('$', '').str.replace(',', '').astype(float)
+
     player_data = {}
     for _, row in players.iterrows():
         pos = row[POSITION]
