@@ -18,12 +18,36 @@ lineup_configs = {
 }
 
 
-def calculate_lineups(lineup_type, output_file, csv_file):
+def calculate_lineups(lineup_type, output_file, csv_file, must_include_players=None, only_use_players=None):
+    if must_include_players is None:
+        must_include_players = []
+    if only_use_players is None:
+        only_use_players = []
+
     players = pd.read_csv(csv_file, usecols=[PLAYER, POSITION, PROJECTION, SALARY])
     # trim whitespace from columns
     players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
     players[SALARY] = players[SALARY].str.replace('$', '').str.replace(',', '').astype(float)
+
+    # Get all player names from CSV
+    all_players = set(players[PLAYER].tolist())
+
+    # Check for missing must_include players
+    if must_include_players:
+        missing_must_include = [p for p in must_include_players if p not in all_players]
+        if missing_must_include:
+            print(f"WARNING: Must-include players not found in CSV: {missing_must_include}")
+
+    # Check for missing only_use players
+    if only_use_players:
+        missing_only_use = [p for p in only_use_players if p not in all_players]
+        if missing_only_use:
+            print(f"WARNING: Only-use players not found in CSV: {missing_only_use}")
+
+    # Filter to only specified players if list is provided
+    if only_use_players:
+        players = players[players[PLAYER].isin(only_use_players)]
 
     player_data = {}
     for _, row in players.iterrows():
@@ -52,6 +76,13 @@ def calculate_lineups(lineup_type, output_file, csv_file):
         # Enforce lineup constraints (how many players from each position)
         for pos, count in lineup_type.items():
             prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count, f"{pos}_constraint"
+
+        # Enforce must-include players
+        for must_include in must_include_players:
+            for pos in player_vars:
+                if must_include in player_vars[pos]:
+                    prob += player_vars[pos][must_include] == 1, f"must_include_{must_include}"
+                    break
 
         # Add each unique lineup only once
         for counter, prev_lineup in enumerate(previous_lineups):
@@ -93,9 +124,9 @@ def calculate_lineups(lineup_type, output_file, csv_file):
     pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
 
 
-def generate_lineup_files(csv_file):
+def generate_lineup_files(csv_file, must_include_players=None, only_use_players=None):
     for name, config in lineup_configs.items():
-        calculate_lineups(config, name, csv_file)
+        calculate_lineups(config, name, csv_file, must_include_players, only_use_players)
 
     print("Lineup files created")
 
@@ -128,7 +159,14 @@ def generate_lineup_files(csv_file):
 if __name__ == "__main__":
     start_time = time.time()
     file_name = "draftkings.csv"
-    generate_lineup_files(file_name)
+
+    # Specify players that must be included in all lineups
+    must_include = []
+
+    # Specify the only players that can be used (empty list = use all players)
+    only_use = []
+
+    generate_lineup_files(file_name, must_include, only_use)
     end_time = time.time()
 
     print(f"Total execution time: {end_time - start_time:.2f} seconds")
