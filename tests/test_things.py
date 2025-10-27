@@ -118,7 +118,7 @@ def test_only_use_players():
                     "Derrick Henry", "Saquon Barkley", "Alvin and the Chipmunks",  # RBs
                     "CeeDee Lamb", "Ja'Marr Chase", "Tyreek Hill", "Chris Olave",  # WRs
                     "Trey McBride", "Mike Gesicki",  # TEs
-                    "Ravens", "Titans"]  # DSTs (no trailing space after trim)
+                    "Ravens", "Titans"]  # DSTs
         
         calculate_lineups(
             {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "DST": 1},
@@ -199,7 +199,7 @@ def test_missing_only_use_player_warning(capsys):
                     "Derrick Henry", "Saquon Barkley", "Alvin and the Chipmunks",
                     "CeeDee Lamb", "Ja'Marr Chase", "Tyreek Hill", "Chris Olave",
                     "Trey McBride", "Mike Gesicki",
-                    "Ravens", "Titans"]  # DSTs (no trailing space after trim)
+                    "Ravens", "Titans"]
         calculate_lineups(
             {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "DST": 1},
             output_file,
@@ -254,16 +254,17 @@ def test_string_truncation_in_output(capsys):
     captured = capsys.readouterr()
     output_lines = captured.out.split('\n')
     
-    # Find lines that contain player data (skip the "Lineup files created" line)
-    player_lines = [line for line in output_lines if line and "Lineup" not in line and "Total" not in line and "created" not in line]
-    
-    # Check that all fields in the output are 12 characters or less
-    for line in player_lines:
-        if line.strip():  # Skip empty lines
+    # Find lines that contain lineup data - should have multiple columns
+    for line in output_lines:
+        if line.strip() and not any(keyword in line for keyword in ["Lineup files created", "execution time"]):
             fields = line.split()
+            # Check string fields for truncation (skip numeric fields)
             for field in fields:
-                # Some fields might be numbers, but string fields should be truncated
-                if not field.replace('.', '').replace('-', '').isdigit():
+                # Try to convert to float - if it fails, it's a string field
+                try:
+                    float(field)
+                except ValueError:
+                    # It's a string field, check length
                     assert len(field) <= 12, f"Field '{field}' exceeds 12 characters"
 
 
