@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import time
+from collections.abc import Sequence
+from pathlib import Path
 
 import pandas as pd
 from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
@@ -7,6 +11,7 @@ POSITION = "DK Pos"
 PROJECTION = "DK Proj"
 SALARY = "DK Salary"
 PLAYER = "Player"
+TOTAL_SCORE = "Total Score"
 
 SALARY_CAP = 50000
 MAX_LINEUPS = 10
@@ -18,36 +23,47 @@ lineup_configs = {
 }
 
 
-def calculate_lineups(lineup_type, output_file, csv_file, must_include_players=None, only_use_players=None):
-    if must_include_players is None:
-        must_include_players = []
-    if only_use_players is None:
-        only_use_players = []
-
-    players = pd.read_csv(csv_file, usecols=[PLAYER, POSITION, PROJECTION, SALARY])
-    # trim whitespace from columns
+def calculate_lineups(
+    lineup_type,
+    output_file,
+    csv_file: str | Path,
+    must_include_players: Sequence[str] | None = None,
+    only_use_players: Sequence[str] | None = None
+) -> None:
+    must_include_players = list(must_include_players or [])
+    only_use_players = list(only_use_players or [])
+    csv_path = Path(csv_file)
+    players = pd.read_csv(csv_path, usecols=[PLAYER, POSITION, PROJECTION, SALARY])
     players = players.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
+    players[SALARY] = pd.to_numeric(
+        players[SALARY].astype(str).str.removeprefix("$").str.replace(",", "", regex=False),
+        errors="coerce"
+    )
+    players = players.dropna(subset=[SALARY])
 
-    players[SALARY] = players[SALARY].str.replace('$', '').str.replace(',', '').astype(float)
-
-    # Get all player names from CSV
-    all_players = set(players[PLAYER].tolist())
-
-    # Check for missing must_include players
     if must_include_players:
-        missing_must_include = [p for p in must_include_players if p not in all_players]
-        if missing_must_include:
-            print(f"WARNING: Must-include players not found in CSV: {missing_must_include}")
-
-    # Check for missing only_use players
+        print(f"Must-include players requested: {', '.join(must_include_players)}")
     if only_use_players:
-        missing_only_use = [p for p in only_use_players if p not in all_players]
-        if missing_only_use:
-            print(f"WARNING: Only-use players not found in CSV: {missing_only_use}")
+        print(f"Only-use player pool requested: {', '.join(only_use_players)}")
 
-    # Filter to only specified players if list is provided
+    all_players = set(players[PLAYER])
+    missing_must_include = sorted(set(must_include_players) - all_players)
+    if missing_must_include:
+        print(f"WARNING: Must-include players not found in CSV: {', '.join(missing_must_include)}")
+    missing_only_use = sorted(set(only_use_players) - all_players) if only_use_players else []
+    if missing_only_use:
+        print(f"WARNING: Only-use players not found in CSV: {', '.join(missing_only_use)}")
+
     if only_use_players:
         players = players[players[PLAYER].isin(only_use_players)]
+
+    remaining_players = set(players[PLAYER])
+    unmet_must_include = sorted(set(must_include_players) - remaining_players)
+    if unmet_must_include:
+        print(f"WARNING: Filtered pool missing must-include players: {', '.join(unmet_must_include)}")
+    if players.empty:
+        print("WARNING: No eligible players remain after filtering; skipping lineup generation.")
+        return
 
     player_data = {}
     for _, row in players.iterrows():
@@ -121,16 +137,24 @@ def calculate_lineups(lineup_type, output_file, csv_file, must_include_players=N
         lineup["Total Score"] = '{0:.1f}'.format(total_score)
         lineup_results.append(lineup)
 
-    pd.DataFrame(lineup_results).to_csv(output_file + ".csv", index=False, header=False)
+    output_path = Path(output_file)
+    if output_path.suffix != ".csv":
+        output_path = output_path.with_suffix(".csv")
+    pd.DataFrame(lineup_results).to_csv(output_path, index=False, header=False)
 
 
-def generate_lineup_files(csv_file, must_include_players=None, only_use_players=None):
+def generate_lineup_files(
+    csv_file: str | Path,
+    must_include_players: Sequence[str] | None = None,
+    only_use_players: Sequence[str] | None = None
+) -> None:
+    csv_path = Path(csv_file)
     for name, config in lineup_configs.items():
-        calculate_lineups(config, name, csv_file, must_include_players, only_use_players)
+        calculate_lineups(config, name, csv_path, must_include_players, only_use_players)
 
     print("Lineup files created")
 
-    csv_files = [f"{name}.csv" for name in lineup_configs]
+    csv_files = [Path(f"{name}.csv") for name in lineup_configs]
 
     # Read files without headers and name the last two columns
     dfs = []
@@ -141,9 +165,9 @@ def generate_lineup_files(csv_file, must_include_players=None, only_use_players=
         dfs.append(df)
 
     combined_df = pd.concat(dfs, ignore_index=True)
-    combined_df['Total Score'] = pd.to_numeric(combined_df['Total Score'])
-    combined_df = combined_df.sort_values(by='Total Score', ascending=False)
-    combined_df.to_csv("combined_lineups.csv", index=False, header=False)
+    combined_df[TOTAL_SCORE] = pd.to_numeric(combined_df[TOTAL_SCORE])
+    combined_df = combined_df.sort_values(by=TOTAL_SCORE, ascending=False)
+    combined_df.to_csv(Path("combined_lineups.csv"), index=False, header=False)
 
     # Limit to top 15 lineups
     combined_df = combined_df.head(15)
@@ -158,7 +182,7 @@ def generate_lineup_files(csv_file, must_include_players=None, only_use_players=
 
 if __name__ == "__main__":
     start_time = time.time()
-    file_name = "draftkings.csv"
+    file_name = Path("draftkings.csv")
 
     # Specify players that must be included in all lineups
     must_include = []
