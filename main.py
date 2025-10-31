@@ -24,28 +24,29 @@ lineup_configs = {
 
 
 def calculate_lineups(
-    lineup_type,
-    output_file,
-    csv_file: str | Path,
+    lineup_type: dict[str, int],
+    output_file: str,
+    all_players_df: pd.DataFrame,
     must_include_players: Sequence[str] | None = None,
     only_use_players: Sequence[str] | None = None,
-) -> None:
+) -> list[dict]:
     must_include_players = list(must_include_players or [])
     only_use_players = list(only_use_players or [])
-    csv_path = Path(csv_file)
-    players = pd.read_csv(csv_path, usecols=[PLAYER, POSITION, PROJECTION, SALARY])
+
+    players = all_players_df.copy()
     players = players.apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
     players[SALARY] = pd.to_numeric(
         players[SALARY].astype(str).str.removeprefix('$').str.replace(',', '', regex=False), errors='coerce'
     )
-    players = players.dropna(subset=[SALARY])
+    players = players.dropna(subset=[SALARY, PROJECTION])
 
+    # --- Player Filtering ---
     if must_include_players:
         print(f'Must-include players requested: {", ".join(must_include_players)}')
     if only_use_players:
         print(f'Only-use player pool requested: {", ".join(only_use_players)}')
 
-    all_players = set(players[PLAYER])
+    all_players = set(all_players_df[PLAYER])
     missing_must_include = sorted(set(must_include_players) - all_players)
     if missing_must_include:
         print(f'WARNING: Must-include players not found in CSV: {", ".join(missing_must_include)}')
@@ -62,7 +63,7 @@ def calculate_lineups(
         print(f'WARNING: Filtered pool missing must-include players: {", ".join(unmet_must_include)}')
     if players.empty:
         print('WARNING: No eligible players remain after filtering; skipping lineup generation.')
-        return
+        return []
 
     player_data = {}
     for _, row in players.iterrows():
@@ -75,7 +76,7 @@ def calculate_lineups(
     previous_lineups = []
 
     for lineup_num in range(1, MAX_LINEUPS + 1):
-        prob = LpProblem('Fantasy', LpMaximize)
+        prob = LpProblem(f'Fantasy_{output_file}_{lineup_num}', LpMaximize)
 
         player_vars = {}
         for pos, players in player_data.items():
@@ -116,7 +117,7 @@ def calculate_lineups(
                     prob += player_vars[pos][must_include] == 1, f'must_include_{must_include}'
                     break
 
-        # Add each unique lineup only once
+        # Add unique lineup constraints
         for counter, prev_lineup in enumerate(previous_lineups):
             prob += (
                 lpSum([player_vars[pos][player] for pos, player in prev_lineup]) <= len(prev_lineup) - 1,
@@ -129,11 +130,9 @@ def calculate_lineups(
             (pos, player) for pos in player_vars for player, var in player_vars[pos].items() if var.varValue == 1
         ]
 
-        # only find unique lineups up to MAX_LINEUPS
         if not current_lineup_players or len(previous_lineups) >= MAX_LINEUPS:
             break
 
-        # Add the current lineup's players to the list of previous lineups
         previous_lineups.append(current_lineup_players)
 
         lineup = {'Lineup #': lineup_num}
@@ -142,7 +141,7 @@ def calculate_lineups(
 
         for column_count, (pos, player) in enumerate(current_lineup_players):
             proj, sal = player_data[pos][player]
-            column_count = column_count + 1
+            column_count += 1
             lineup[f'Player {column_count} Position'] = pos
             lineup[f'Player {column_count} Name'] = player
             lineup[f'Player {column_count} Salary'] = sal
@@ -151,13 +150,16 @@ def calculate_lineups(
             total_salary += sal
 
         lineup['Total Salary'] = total_salary
-        lineup['Total Score'] = '{0:.1f}'.format(total_score)
+        lineup[TOTAL_SCORE] = f'{total_score:.1f}'
         lineup_results.append(lineup)
 
+    # Write the individual files
     output_path = Path(output_file)
     if output_path.suffix != '.csv':
         output_path = output_path.with_suffix('.csv')
     pd.DataFrame(lineup_results).to_csv(output_path, index=False, header=False)
+
+    return lineup_results
 
 
 def generate_lineup_files(
@@ -166,35 +168,54 @@ def generate_lineup_files(
     only_use_players: Sequence[str] | None = None,
 ) -> None:
     csv_path = Path(csv_file)
+
+    try:
+        players_df = pd.read_csv(csv_path, usecols=[PLAYER, POSITION, PROJECTION, SALARY])
+        players_df = players_df.apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
+        players_df[SALARY] = pd.to_numeric(
+            players_df[SALARY].astype(str).str.removeprefix('$').str.replace(',', '', regex=False), errors='coerce'
+        )
+        players_df = players_df.dropna(subset=[SALARY, PROJECTION])
+    except FileNotFoundError:
+        print(f"Error: Input file '{csv_path}' not found.")
+        return
+    except ValueError as e:
+        print(f'Error processing {csv_path}: {e}')
+        return
+
+    all_lineups_results = []
     for name, config in lineup_configs.items():
-        calculate_lineups(config, name, csv_path, must_include_players, only_use_players)
+        # Pass the pre-processed DataFrame to the calculation function
+        lineups = calculate_lineups(
+            config,
+            name,
+            players_df,
+            must_include_players,
+            only_use_players,
+        )
+        all_lineups_results.extend(lineups)
 
     print('Lineup files created')
 
-    csv_files = [Path(f'{name}.csv') for name in lineup_configs]
+    if not all_lineups_results:
+        print('No lineups were generated.')
+        return
 
-    # Read files without headers and name the last two columns
-    dfs = []
-    for file in csv_files:
-        df = pd.read_csv(file, header=None)
-        n = df.shape[1]
-        df.columns = [f'col{i}' for i in range(n - 2)] + ['Total Salary', 'Total Score']
-        dfs.append(df)
+    combined_df = pd.DataFrame(all_lineups_results)
 
-    combined_df = pd.concat(dfs, ignore_index=True)
     combined_df[TOTAL_SCORE] = pd.to_numeric(combined_df[TOTAL_SCORE])
     combined_df = combined_df.sort_values(by=TOTAL_SCORE, ascending=False)
     combined_df.to_csv(Path('combined_lineups.csv'), index=False, header=False)
 
-    # Limit to top 15 lineups
-    combined_df = combined_df.head(15)
+    # Limit to top 15 lineups for printing
+    combined_df_print = combined_df.head(15).copy()
 
-    # Truncate all string columns to 12 characters
-    for col in combined_df.columns:
-        if combined_df[col].dtype == 'object':
-            combined_df[col] = combined_df[col].str[:12]
+    # Truncate all string columns to 12 characters for printing
+    for col in combined_df_print.columns:
+        if combined_df_print[col].dtype == 'object':
+            combined_df_print.loc[:, col] = combined_df_print[col].str[:12]
 
-    print(combined_df.to_string(index=False, header=False))
+    print(combined_df_print.to_string(index=False, header=False))
 
 
 if __name__ == '__main__':
