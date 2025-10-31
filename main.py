@@ -46,19 +46,19 @@ def calculate_lineups(
     if only_use_players:
         print(f'Only-use player pool requested: {", ".join(only_use_players)}')
 
-    all_players_set = set(all_players_df[PLAYER])
-    missing_must_include = sorted(set(must_include_players) - all_players_set)
+    all_players = set(all_players_df[PLAYER])
+    missing_must_include = sorted(set(must_include_players) - all_players)
     if missing_must_include:
         print(f'WARNING: Must-include players not found in CSV: {", ".join(missing_must_include)}')
-    missing_only_use = sorted(set(only_use_players) - all_players_set) if only_use_players else []
+    missing_only_use = sorted(set(only_use_players) - all_players) if only_use_players else []
     if missing_only_use:
         print(f'WARNING: Only-use players not found in CSV: {", ".join(missing_only_use)}')
 
     if only_use_players:
         players = players[players[PLAYER].isin(only_use_players)]
 
-    remaining_players_set = set(players[PLAYER])
-    unmet_must_include = sorted(set(must_include_players) - remaining_players_set)
+    remaining_players = set(players[PLAYER])
+    unmet_must_include = sorted(set(must_include_players) - remaining_players)
     if unmet_must_include:
         print(f'WARNING: Filtered pool missing must-include players: {", ".join(unmet_must_include)}')
     if players.empty:
@@ -79,8 +79,8 @@ def calculate_lineups(
         prob = LpProblem(f'Fantasy_{output_file}_{lineup_num}', LpMaximize)
 
         player_vars = {}
-        for pos, pos_players in player_data.items():
-            player_vars[pos] = LpVariable.dicts(f'{pos}_players', pos_players.keys(), cat='Binary')
+        for pos, players in player_data.items():
+            player_vars[pos] = LpVariable.dicts(f'{pos}_players', players.keys(), cat='Binary')
 
         prob += (
             lpSum(
@@ -153,7 +153,7 @@ def calculate_lineups(
         lineup[TOTAL_SCORE] = f'{total_score:.1f}'
         lineup_results.append(lineup)
 
-    # Write the individual file (as required by README/tests)
+    # Write the individual files
     output_path = Path(output_file)
     if output_path.suffix != '.csv':
         output_path = output_path.with_suffix('.csv')
