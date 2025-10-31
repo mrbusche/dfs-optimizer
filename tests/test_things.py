@@ -89,11 +89,13 @@ def test_must_include_players():
 
     try:
         must_include = ['Lamar Jackson']
+        df = pd.read_csv('./tests/draftkings.csv')
         calculate_lineups(
             {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
             output_file,
-            './tests/draftkings.csv',
+            df,
             must_include_players=must_include,
+            only_use_players=[],
         )
 
         df = pd.read_csv(output_file + '.csv', header=None)
@@ -130,10 +132,12 @@ def test_only_use_players():
             'Titans',
         ]  # DSTs
 
+        df = pd.read_csv('./tests/draftkings.csv')
         calculate_lineups(
             {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
             output_file,
-            './tests/draftkings.csv',
+            df,
+            must_include_players=[],
             only_use_players=only_use,
         )
 
@@ -159,7 +163,8 @@ def test_salary_cap_constraint():
         output_file = f.name.replace('.csv', '')
 
     try:
-        calculate_lineups({'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1}, output_file, './tests/draftkings.csv')
+        df = pd.read_csv('./tests/draftkings.csv')
+        calculate_lineups({'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1}, output_file, df)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
@@ -179,11 +184,13 @@ def test_missing_must_include_player_warning(capsys):
 
     try:
         must_include = ['NonExistentPlayer123']
+        df = pd.read_csv('./tests/draftkings.csv')
         calculate_lineups(
             {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
             output_file,
-            './tests/draftkings.csv',
+            df,
             must_include_players=must_include,
+            only_use_players=[],
         )
 
         captured = capsys.readouterr()
@@ -217,10 +224,12 @@ def test_missing_only_use_player_warning(capsys):
             'Ravens',
             'Titans',
         ]
+        df = pd.read_csv('./tests/draftkings.csv')
         calculate_lineups(
             {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
             output_file,
-            './tests/draftkings.csv',
+            df,
+            must_include_players=[],
             only_use_players=only_use,
         )
 
@@ -291,7 +300,8 @@ def test_unique_lineups_generated():
         output_file = f.name.replace('.csv', '')
 
     try:
-        calculate_lineups({'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1}, output_file, './tests/draftkings.csv')
+        df = pd.read_csv('./tests/draftkings.csv')
+        calculate_lineups({'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1}, output_file, df)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
@@ -316,7 +326,14 @@ def test_position_constraints():
 
     try:
         lineup_config = {'QB': 1, 'RB': 3, 'WR': 3, 'TE': 1, 'DST': 1}
-        calculate_lineups(lineup_config, output_file, './tests/draftkings.csv')
+        df = pd.read_csv('./tests/draftkings.csv')
+        calculate_lineups(
+            lineup_config,
+            output_file,
+            df,
+            must_include_players=[],
+            only_use_players=[],
+        )
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
