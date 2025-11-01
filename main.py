@@ -242,7 +242,7 @@ if __name__ == '__main__':
 
     # Specify players to exclude from all lineups
     exclude = []
-    # Specify the only players that can be used (empty list = use all players)
+
     generate_lineup_files(file_name, must_include, only_use, exclude)
     end_time = time.time()
 
