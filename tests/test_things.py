@@ -241,6 +241,66 @@ def test_missing_only_use_player_warning(capsys):
             os.remove(output_file + '.csv')
 
 
+def test_exclude_players():
+    """Test that excluded players do not appear in any generated lineups"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        output_file = f.name.replace('.csv', '')
+
+    try:
+        # Exclude some high-value players to test the constraint
+        exclude = ['Christian McCaffrey', "Ja'Marr Chase", 'Josh Allen']
+
+        df = pd.read_csv('./tests/draftkings.csv')
+        calculate_lineups(
+            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
+            output_file,
+            df,
+            must_include_players=[],
+            only_use_players=[],
+            exclude_players=exclude,
+        )
+
+        df = pd.read_csv(output_file + '.csv', header=None)
+
+        # Verify at least one lineup was generated
+        assert len(df) > 0, 'No lineups generated with exclude_players restriction'
+
+        # Check that excluded players do not appear in any lineup
+        for _, row in df.iterrows():
+            row_str = ','.join(row.astype(str))
+            for excluded_player in exclude:
+                assert excluded_player not in row_str, f"Excluded player '{excluded_player}' found in lineup"
+    finally:
+        if os.path.exists(output_file + '.csv'):
+            os.remove(output_file + '.csv')
+
+
+def test_missing_exclude_player_warning(capsys):
+    """Test that warnings are printed when exclude players are not found"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        output_file = f.name.replace('.csv', '')
+
+    try:
+        exclude = ['NonExistentPlayer789', 'AnotherFakePlayer']
+        df = pd.read_csv('./tests/draftkings.csv')
+        calculate_lineups(
+            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
+            output_file,
+            df,
+            must_include_players=[],
+            only_use_players=[],
+            exclude_players=exclude,
+        )
+
+        captured = capsys.readouterr()
+        assert 'WARNING: Exclude players not found in CSV' in captured.out
+        assert 'NonExistentPlayer789' in captured.out
+        assert 'AnotherFakePlayer' in captured.out
+    finally:
+        if os.path.exists(output_file + '.csv'):
+            os.remove(output_file + '.csv')
+
+
 def test_combined_lineups_sorted():
     """Test that combined lineups are sorted by Total Score in descending order"""
     generate_lineup_files('./tests/draftkings.csv')
