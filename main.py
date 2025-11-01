@@ -29,9 +29,11 @@ def calculate_lineups(
     all_players_df: pd.DataFrame,
     must_include_players: Sequence[str] | None = None,
     only_use_players: Sequence[str] | None = None,
+    exclude_players: Sequence[str] | None = None,
 ) -> list[dict]:
     must_include_players = list(must_include_players or [])
     only_use_players = list(only_use_players or [])
+    exclude_players = list(exclude_players or [])
 
     players = all_players_df.copy()
     players = players.apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
@@ -40,12 +42,6 @@ def calculate_lineups(
     )
     players = players.dropna(subset=[SALARY, PROJECTION])
 
-    # --- Player Filtering ---
-    if must_include_players:
-        print(f'Must-include players requested: {", ".join(must_include_players)}')
-    if only_use_players:
-        print(f'Only-use player pool requested: {", ".join(only_use_players)}')
-
     all_players = set(all_players_df[PLAYER])
     missing_must_include = sorted(set(must_include_players) - all_players)
     if missing_must_include:
@@ -53,9 +49,15 @@ def calculate_lineups(
     missing_only_use = sorted(set(only_use_players) - all_players) if only_use_players else []
     if missing_only_use:
         print(f'WARNING: Only-use players not found in CSV: {", ".join(missing_only_use)}')
+    missing_exclude = sorted(set(exclude_players) - all_players) if exclude_players else []
+    if missing_exclude:
+        print(f'WARNING: Exclude players not found in CSV: {", ".join(missing_exclude)}')
 
     if only_use_players:
         players = players[players[PLAYER].isin(only_use_players)]
+
+    if exclude_players:
+        players = players[~players[PLAYER].isin(exclude_players)]
 
     remaining_players = set(players[PLAYER])
     unmet_must_include = sorted(set(must_include_players) - remaining_players)
@@ -166,6 +168,7 @@ def generate_lineup_files(
     csv_file: str | Path,
     must_include_players: Sequence[str] | None = None,
     only_use_players: Sequence[str] | None = None,
+    exclude_players: Sequence[str] | None = None,
 ) -> None:
     csv_path = Path(csv_file)
 
@@ -183,6 +186,14 @@ def generate_lineup_files(
         print(f'Error processing {csv_path}: {e}')
         return
 
+    # --- Player Filtering ---
+    if must_include_players:
+        print(f'Must-include players requested: {", ".join(must_include_players)}')
+    if only_use_players:
+        print(f'Only-use player pool requested: {", ".join(only_use_players)}')
+    if exclude_players:
+        print(f'Exclude players requested: {", ".join(exclude_players)}')
+
     all_lineups_results = []
     for name, config in lineup_configs.items():
         # Pass the pre-processed DataFrame to the calculation function
@@ -192,6 +203,7 @@ def generate_lineup_files(
             players_df,
             must_include_players,
             only_use_players,
+            exclude_players,
         )
         all_lineups_results.extend(lineups)
 
@@ -228,7 +240,10 @@ if __name__ == '__main__':
     # Specify the only players that can be used (empty list = use all players)
     only_use = []
 
-    generate_lineup_files(file_name, must_include, only_use)
+    # Specify players to exclude from all lineups
+    exclude = []
+    # Specify the only players that can be used (empty list = use all players)
+    generate_lineup_files(file_name, must_include, only_use, exclude)
     end_time = time.time()
 
     print(f'Total execution time: {end_time - start_time:.2f} seconds')
