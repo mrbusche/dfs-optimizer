@@ -4,7 +4,7 @@ import tempfile
 import pandas as pd
 import pytest
 
-from main import calculate_lineups, generate_lineup_files
+from main import LineupConfig, OptimizationParams, calculate_lineups, generate_lineup_files, validate_players_data
 
 
 @pytest.fixture(autouse=True)
@@ -25,16 +25,16 @@ def test_four_wr():
     # because of the duplicate scores, the results are not always returned in the same order
     conditions = [
         len(four_wr) == 10,
-        four_wr[0][-5:] == '145.5',
-        four_wr[1][-5:] == '145.3',
-        four_wr[2][-5:] == '145.3',
-        four_wr[3][-5:] == '145.3',
-        four_wr[4][-5:] == '145.3',
-        four_wr[5][-5:] == '145.3',
-        four_wr[6][-5:] == '145.2',
-        four_wr[7][-5:] == '145.2',
-        four_wr[8][-5:] == '145.2',
-        four_wr[9][-5:] == '145.2',
+        four_wr[0].endswith('145.5'),
+        four_wr[1].endswith('145.3'),
+        four_wr[2].endswith('145.3'),
+        four_wr[3].endswith('145.3'),
+        four_wr[4].endswith('145.3'),
+        four_wr[5].endswith('145.3'),
+        four_wr[6].endswith('145.2'),
+        four_wr[7].endswith('145.2'),
+        four_wr[8].endswith('145.2'),
+        four_wr[9].endswith('145.2'),
     ]
 
     assert all(conditions)
@@ -46,16 +46,16 @@ def test_three_rb():
 
     conditions = [
         len(three_rb) == 10,
-        three_rb[0][-5:] == '148.2',
-        three_rb[1][-5:] == '148.0',
-        three_rb[2][-5:] == '148.0',
-        three_rb[3][-5:] == '147.9',
-        three_rb[4][-5:] == '147.9',
-        three_rb[5][-5:] == '147.9',
-        three_rb[6][-5:] == '147.8',
-        three_rb[7][-5:] == '147.8',
-        three_rb[8][-5:] == '147.8',
-        three_rb[9][-5:] == '147.7',
+        three_rb[0].endswith('148.2'),
+        three_rb[1].endswith('148.0'),
+        three_rb[2].endswith('148.0'),
+        three_rb[3].endswith('147.9'),
+        three_rb[4].endswith('147.9'),
+        three_rb[5].endswith('147.9'),
+        three_rb[6].endswith('147.8'),
+        three_rb[7].endswith('147.8'),
+        three_rb[8].endswith('147.8'),
+        three_rb[9].endswith('147.7'),
     ]
 
     assert all(conditions)
@@ -67,16 +67,16 @@ def test_two_te():
 
     conditions = [
         len(two_te) == 10,
-        two_te[0][-5:] == '146.0',
-        two_te[1][-5:] == '146.0',
-        two_te[2][-5:] == '146.0',
-        two_te[3][-5:] == '145.9',
-        two_te[4][-5:] == '145.9',
-        two_te[5][-5:] == '145.8',
-        two_te[6][-5:] == '145.8',
-        two_te[7][-5:] == '145.7',
-        two_te[8][-5:] == '145.7',
-        two_te[9][-5:] == '145.7',
+        two_te[0].endswith('146.0'),
+        two_te[1].endswith('146.0'),
+        two_te[2].endswith('146.0'),
+        two_te[3].endswith('145.9'),
+        two_te[4].endswith('145.9'),
+        two_te[5].endswith('145.8'),
+        two_te[6].endswith('145.8'),
+        two_te[7].endswith('145.7'),
+        two_te[8].endswith('145.7'),
+        two_te[9].endswith('145.7'),
     ]
 
     assert all(conditions)
@@ -88,15 +88,12 @@ def test_must_include_players():
         output_file = f.name.replace('.csv', '')
 
     try:
-        must_include = ['Lamar Jackson']
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams(must_include_players=['Lamar Jackson'])
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups(
-            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
-            output_file,
-            df,
-            must_include_players=must_include,
-            only_use_players=[],
-        )
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
@@ -130,16 +127,14 @@ def test_only_use_players():
             'Mike Gesicki',  # TEs
             'Ravens',
             'Titans',
-        ]  # DSTs
+        ]
+
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams(only_use_players=only_use)
 
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups(
-            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
-            output_file,
-            df,
-            must_include_players=[],
-            only_use_players=only_use,
-        )
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
@@ -163,8 +158,12 @@ def test_salary_cap_constraint():
         output_file = f.name.replace('.csv', '')
 
     try:
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams()
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups({'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1}, output_file, df)
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
@@ -183,15 +182,12 @@ def test_missing_must_include_player_warning(capsys):
         output_file = f.name.replace('.csv', '')
 
     try:
-        must_include = ['NonExistentPlayer123']
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams(must_include_players=['NonExistentPlayer123'])
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups(
-            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
-            output_file,
-            df,
-            must_include_players=must_include,
-            only_use_players=[],
-        )
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         captured = capsys.readouterr()
         assert 'WARNING: Must-include players not found in CSV' in captured.out
@@ -224,14 +220,13 @@ def test_missing_only_use_player_warning(capsys):
             'Ravens',
             'Titans',
         ]
+
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams(only_use_players=only_use)
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups(
-            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
-            output_file,
-            df,
-            must_include_players=[],
-            only_use_players=only_use,
-        )
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         captured = capsys.readouterr()
         assert 'WARNING: Only-use players not found in CSV' in captured.out
@@ -250,15 +245,12 @@ def test_exclude_players():
         # Exclude some high-value players to test the constraint
         exclude = ['Christian McCaffrey', "Ja'Marr Chase", 'Josh Allen']
 
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams(exclude_players=exclude)
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups(
-            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
-            output_file,
-            df,
-            must_include_players=[],
-            only_use_players=[],
-            exclude_players=exclude,
-        )
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
@@ -281,16 +273,12 @@ def test_missing_exclude_player_warning(capsys):
         output_file = f.name.replace('.csv', '')
 
     try:
-        exclude = ['NonExistentPlayer789', 'AnotherFakePlayer']
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams(exclude_players=['NonExistentPlayer789', 'AnotherFakePlayer'])
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups(
-            {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1},
-            output_file,
-            df,
-            must_include_players=[],
-            only_use_players=[],
-            exclude_players=exclude,
-        )
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         captured = capsys.readouterr()
         assert 'WARNING: Exclude players not found in CSV' in captured.out
@@ -360,8 +348,12 @@ def test_unique_lineups_generated():
         output_file = f.name.replace('.csv', '')
 
     try:
+        lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
+        params = OptimizationParams()
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups({'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1}, output_file, df)
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
@@ -385,22 +377,19 @@ def test_position_constraints():
         output_file = f.name.replace('.csv', '')
 
     try:
-        lineup_config = {'QB': 1, 'RB': 3, 'WR': 3, 'TE': 1, 'DST': 1}
+        lineup_config = LineupConfig(QB=1, RB=3, WR=3, TE=1, DST=1)
+        params = OptimizationParams()
+
         df = pd.read_csv('./tests/draftkings.csv')
-        calculate_lineups(
-            lineup_config,
-            output_file,
-            df,
-            must_include_players=[],
-            only_use_players=[],
-        )
+        players = validate_players_data(df)
+        calculate_lineups(lineup_config, output_file, players, params)
 
         df = pd.read_csv(output_file + '.csv', header=None)
 
         # Each lineup should have exactly 9 players (sum of position counts)
         # The CSV has position/name/salary/projection for each player (4 columns per player)
         # Plus lineup number, total salary, and total score
-        expected_player_count = sum(lineup_config.values())
+        expected_player_count = lineup_config.total_players()
 
         for _, row in df.iterrows():
             # Count player entries (every 4 columns starting from column 1)
