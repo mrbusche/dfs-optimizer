@@ -44,7 +44,7 @@ class LineupConfig(BaseModel):
     dst: int = Field(..., ge=0, le=2, alias='DST')
 
     class Config:
-        allow_population_by_field_name = True
+        validate_by_name = True
 
     def total_players(self) -> int:
         return self.qb + self.rb + self.wr + self.te + self.dst
@@ -63,7 +63,7 @@ class Lineup(BaseModel):
     """Represents a complete lineup"""
 
     lineup_number: int = Field(..., ge=1)
-    players: list[LineupPlayer] = Field(..., min_items=1)
+    players: list[LineupPlayer] = Field(..., min_length=1)
     total_salary: int = Field(..., ge=0, le=SALARY_CAP)
     total_score: float = Field(..., ge=0)
 
@@ -216,7 +216,7 @@ def calculate_lineups(
         )
 
         # Enforce lineup constraints (how many players from each position)
-        lineup_dict = lineup_config.dict(by_alias=True)
+        lineup_dict = lineup_config.model_dump(by_alias=True)
         for pos, count in lineup_dict.items():
             if pos in player_vars and count > 0:
                 prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count, f'{pos}_constraint'
