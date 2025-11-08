@@ -353,31 +353,10 @@ if __name__ == '__main__':
     file_name = Path('draftkings.csv')
 
     # Specify players that must be included in all lineups
-    must_include = ['Christian McCaffrey']
+    must_include = []
 
     # Specify the only players that can be used (empty list = use all players)
-    only_use = [
-        'Josh Allen',
-        'Mac Jones',
-        'Marcus Mariota',
-        'Christian McCaffrey',
-        'Rico Dowdle',
-        "De'Von Achane",
-        'TreVeyon Henderson',
-        'Zay Flowers',
-        'Jaxon Smith-Njigba',
-        'Jauan Jennings',
-        'Tez Johnson',
-        'Dyami Brown',
-        'Trey McBride',
-        'George Kittle',
-        'Hunter Henry',
-        'Sam LaPorta',
-        'Jaguars',
-        'Buccaneers',
-        'Browns',
-        'Jets',
-    ]
+    only_use = []
 
     # Specify players to exclude from all lineups
     exclude = []
