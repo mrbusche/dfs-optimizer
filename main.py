@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 POSITION = 'DK Pos'
 PROJECTION = 'DK Proj'
@@ -37,14 +37,13 @@ class Player(BaseModel):
 class LineupConfig(BaseModel):
     """Represents the configuration for a lineup type"""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     qb: int = Field(..., ge=0, le=3, alias='QB')
     rb: int = Field(..., ge=0, le=4, alias='RB')
     wr: int = Field(..., ge=0, le=5, alias='WR')
     te: int = Field(..., ge=0, le=3, alias='TE')
     dst: int = Field(..., ge=0, le=2, alias='DST')
-
-    class Config:
-        validate_by_name = True
 
     def total_players(self) -> int:
         return self.qb + self.rb + self.wr + self.te + self.dst
