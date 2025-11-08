@@ -40,7 +40,7 @@ dev = [
 requires-dist = [
     { name = "pandas", specifier = "==2.3.3" },
     { name = "pulp", specifier = "==3.3.0" },
-    { name = "pydantic", specifier = ">=2.12.4" },
+    { name = "pydantic", specifier = "==2.12.4" },
     { name = "pytest", specifier = "==9.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.14.4" },
 ]
