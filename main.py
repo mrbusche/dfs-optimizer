@@ -281,6 +281,7 @@ def generate_lineup_files(
     must_include_players: Sequence[str] | None = None,
     only_use_players: Sequence[str] | None = None,
     exclude_players: Sequence[str] | None = None,
+    allow_two_te: bool = True,
 ) -> None:
     csv_path = Path(csv_file)
 
@@ -319,6 +320,8 @@ def generate_lineup_files(
 
     all_lineups_results = []
     for name, config in lineup_configs.items():
+        if name == 'two_te' and not allow_two_te:
+            continue
         lineups = calculate_lineups(config, name, players, params)
         all_lineups_results.extend(lineups)
 
@@ -360,7 +363,9 @@ if __name__ == '__main__':
     # Specify players to exclude from all lineups
     exclude = []
 
-    generate_lineup_files(file_name, must_include, only_use, exclude)
+    two_te_allowed = False
+
+    generate_lineup_files(file_name, must_include, only_use, exclude, allow_two_te=two_te_allowed)
     end_time = time.time()
 
     print(f'Total execution time: {end_time - start_time:.2f} seconds')

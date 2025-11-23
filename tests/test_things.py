@@ -18,6 +18,18 @@ def test_generate_lineup_files():
     assert os.path.exists('two_te.csv')
 
 
+def test_generate_lineup_files_no_two_te():
+    # The fixture runs before this test and creates two_te.csv, so remove it first
+    if os.path.exists('two_te.csv'):
+        os.remove('two_te.csv')
+
+    generate_lineup_files('./tests/draftkings.csv', allow_two_te=False)
+
+    assert os.path.exists('four_wr.csv')
+    assert os.path.exists('three_rb.csv')
+    assert not os.path.exists('two_te.csv')
+
+
 def test_four_wr():
     with open('four_wr.csv', 'r') as f:
         four_wr = [f.readline().strip() for _ in range(10)]
