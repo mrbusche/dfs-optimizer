@@ -363,7 +363,7 @@ if __name__ == '__main__':
     # Specify players to exclude from all lineups
     exclude = []
 
-    two_te_allowed = False
+    two_te_allowed = True
 
     generate_lineup_files(file_name, must_include, only_use, exclude, allow_two_te=two_te_allowed)
     end_time = time.time()
