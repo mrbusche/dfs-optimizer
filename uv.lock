@@ -29,10 +29,6 @@ dependencies = [
     { name = "pulp" },
     { name = "pydantic" },
     { name = "pytest" },
-]
-
-[package.optional-dependencies]
-dev = [
     { name = "ruff" },
 ]
 
@@ -42,9 +38,8 @@ requires-dist = [
     { name = "pulp", specifier = "==3.3.0" },
     { name = "pydantic", specifier = "==2.12.5" },
     { name = "pytest", specifier = "==9.0.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.14.7" },
+    { name = "ruff", specifier = "==0.14.7" },
 ]
-provides-extras = ["dev"]
 
 [[package]]
 name = "iniconfig"
