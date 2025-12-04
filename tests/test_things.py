@@ -7,7 +7,7 @@ import pytest
 from main import LineupConfig, OptimizationParams, calculate_lineups, generate_lineup_files, validate_players_data
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def generate_files():
     generate_lineup_files('./tests/draftkings.csv')
 
@@ -19,15 +19,19 @@ def test_generate_lineup_files():
 
 
 def test_generate_lineup_files_no_two_te():
-    # The fixture runs before this test and creates two_te.csv, so remove it first
-    if os.path.exists('two_te.csv'):
-        os.remove('two_te.csv')
+    try:
+        # The fixture runs before this test and creates two_te.csv, so remove it first
+        if os.path.exists('two_te.csv'):
+            os.remove('two_te.csv')
 
-    generate_lineup_files('./tests/draftkings.csv', allow_two_te=False)
+        generate_lineup_files('./tests/draftkings.csv', allow_two_te=False)
 
-    assert os.path.exists('four_wr.csv')
-    assert os.path.exists('three_rb.csv')
-    assert not os.path.exists('two_te.csv')
+        assert os.path.exists('four_wr.csv')
+        assert os.path.exists('three_rb.csv')
+        assert not os.path.exists('two_te.csv')
+    finally:
+        # Restore files for other tests since fixture is now module scoped
+        generate_lineup_files('./tests/draftkings.csv')
 
 
 def test_four_wr():
