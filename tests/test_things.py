@@ -7,7 +7,7 @@ import pytest
 from main import LineupConfig, OptimizationParams, calculate_lineups, generate_lineup_files, validate_players_data
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def generate_files():
     generate_lineup_files('./tests/draftkings.csv')
 
@@ -19,15 +19,19 @@ def test_generate_lineup_files():
 
 
 def test_generate_lineup_files_no_two_te():
-    # The fixture runs before this test and creates two_te.csv, so remove it first
-    if os.path.exists('two_te.csv'):
-        os.remove('two_te.csv')
+    try:
+        # The fixture runs before this test and creates two_te.csv, so remove it first
+        if os.path.exists('two_te.csv'):
+            os.remove('two_te.csv')
 
-    generate_lineup_files('./tests/draftkings.csv', allow_two_te=False)
+        generate_lineup_files('./tests/draftkings.csv', allow_two_te=False)
 
-    assert os.path.exists('four_wr.csv')
-    assert os.path.exists('three_rb.csv')
-    assert not os.path.exists('two_te.csv')
+        assert os.path.exists('four_wr.csv')
+        assert os.path.exists('three_rb.csv')
+        assert not os.path.exists('two_te.csv')
+    finally:
+        # Restore files for other tests since fixture is now module scoped
+        generate_lineup_files('./tests/draftkings.csv')
 
 
 def test_four_wr():
@@ -111,7 +115,7 @@ def test_must_include_players():
 
         # Check that Lamar Jackson appears in every lineup
         for _, row in df.iterrows():
-            row_str = ','.join(row.astype(str))
+            row_str = ','.join(row.map(str))
             assert 'Lamar Jackson' in row_str, "Must-include player 'Lamar Jackson' not found in lineup"
     finally:
         if os.path.exists(output_file + '.csv'):
@@ -155,7 +159,7 @@ def test_only_use_players():
 
         # Parse the lineup to check that only specified players are used
         for _, row in df.iterrows():
-            row_str = ','.join(row.astype(str))
+            row_str = ','.join(row.map(str))
             # Check for some players that should NOT be in the output
             assert 'Jayden Daniels' not in row_str, 'Player not in only_use list found in lineup'
             assert 'Joe Burrow' not in row_str, 'Player not in only_use list found in lineup'
@@ -271,7 +275,7 @@ def test_exclude_players():
 
         # Check that excluded players do not appear in any lineup
         for _, row in df.iterrows():
-            row_str = ','.join(row.astype(str))
+            row_str = ','.join(row.map(str))
             for excluded_player in exclude:
                 assert excluded_player not in row_str, f"Excluded player '{excluded_player}' found in lineup"
     finally:
@@ -375,7 +379,7 @@ def test_unique_lineups_generated():
         # Convert each row to a string and check for uniqueness
         lineup_strings = set()
         for _, row in df.iterrows():
-            lineup_str = ','.join(row.astype(str))
+            lineup_str = ','.join(row.map(str))
             assert lineup_str not in lineup_strings, 'Duplicate lineup found'
             lineup_strings.add(lineup_str)
     finally:

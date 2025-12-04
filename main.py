@@ -344,8 +344,8 @@ def generate_lineup_files(
 
     # Truncate all string columns to 12 characters for printing
     for col in combined_df_print.columns:
-        if combined_df_print[col].dtype == 'object':
-            combined_df_print.loc[:, col] = combined_df_print[col].str[:12]
+        if pd.api.types.is_string_dtype(combined_df_print[col]) or combined_df_print[col].dtype == 'object':
+            combined_df_print.loc[:, col] = combined_df_print[col].astype(str).str[:12]
 
     print(combined_df_print.to_string(index=False, header=False))
 
