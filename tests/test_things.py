@@ -111,7 +111,7 @@ def test_must_include_players():
 
         # Check that Lamar Jackson appears in every lineup
         for _, row in df.iterrows():
-            row_str = ','.join(row.astype(str))
+            row_str = ','.join(row.map(str))
             assert 'Lamar Jackson' in row_str, "Must-include player 'Lamar Jackson' not found in lineup"
     finally:
         if os.path.exists(output_file + '.csv'):
@@ -155,7 +155,7 @@ def test_only_use_players():
 
         # Parse the lineup to check that only specified players are used
         for _, row in df.iterrows():
-            row_str = ','.join(row.astype(str))
+            row_str = ','.join(row.map(str))
             # Check for some players that should NOT be in the output
             assert 'Jayden Daniels' not in row_str, 'Player not in only_use list found in lineup'
             assert 'Joe Burrow' not in row_str, 'Player not in only_use list found in lineup'
@@ -271,7 +271,7 @@ def test_exclude_players():
 
         # Check that excluded players do not appear in any lineup
         for _, row in df.iterrows():
-            row_str = ','.join(row.astype(str))
+            row_str = ','.join(row.map(str))
             for excluded_player in exclude:
                 assert excluded_player not in row_str, f"Excluded player '{excluded_player}' found in lineup"
     finally:
@@ -375,7 +375,7 @@ def test_unique_lineups_generated():
         # Convert each row to a string and check for uniqueness
         lineup_strings = set()
         for _, row in df.iterrows():
-            lineup_str = ','.join(row.astype(str))
+            lineup_str = ','.join(row.map(str))
             assert lineup_str not in lineup_strings, 'Duplicate lineup found'
             lineup_strings.add(lineup_str)
     finally:
