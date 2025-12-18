@@ -321,6 +321,7 @@ def generate_lineup_files(
     all_lineups_results = []
     for name, config in lineup_configs.items():
         if name == 'two_te' and not allow_two_te:
+            print('WARNING: Two TE lineup configuration disabled')
             continue
         lineups = calculate_lineups(config, name, players, params)
         all_lineups_results.extend(lineups)
