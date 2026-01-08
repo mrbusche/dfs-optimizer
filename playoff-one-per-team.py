@@ -1,37 +1,61 @@
+from __future__ import annotations
+
 import time
+from typing import Any
 
 import pandas as pd
 from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
 
-POSITION = 'Position'
-PROJECTION = 'Points'
-TEAM = 'Team'
-PLAYER = 'Player'
+POSITION: str = 'Pos'
+PROJECTION: str = 'Total Points'
+TEAM: str = 'Team'
+PLAYER: str = 'Player'
 
-MAX_LINEUPS = 10
+MAX_LINEUPS: int = 10
 
-lineup_configs = {'playoff-league': {'QB': 2, 'RB': 4, 'WR': 4, 'TE': 2, 'K': 1, 'DST': 1}}
+lineup_configs: dict[str, dict[str, int]] = {'playoff-league': {'QB': 2, 'RB': 4, 'WR': 4, 'TE': 2, 'K': 1, 'DST': 1}}
 
 
-def calculate_lineups(lineup_type, output_file, csv_file):
+def calculate_lineups(
+    lineup_type: dict[str, int],
+    output_file: str,
+    csv_file: str,
+    must_include_players: list[str] | None = None,
+    exclude_players: list[str] | None = None,
+) -> None:
+    must_include_players = must_include_players or []
+    exclude_players = exclude_players or []
     players = pd.read_csv(csv_file, usecols=[PLAYER, TEAM, POSITION, PROJECTION])
-    # trim whitespace from columns
+    # Trim whitespace from columns
     players = players.apply(lambda x: x.str.strip() if x.dtype == 'object' else x)
 
-    player_data = {}
+    # Validate and warn about missing players
+    all_player_names = set(players[PLAYER].unique())
+    missing_must_include = sorted(set(must_include_players) - all_player_names)
+    if missing_must_include:
+        print(f'WARNING: Must-include players not found in CSV: {", ".join(missing_must_include)}')
+
+    missing_exclude = sorted(set(exclude_players) - all_player_names)
+    if missing_exclude:
+        print(f'WARNING: Exclude players not found in CSV: {", ".join(missing_exclude)}')
+
+    # Filter out excluded players
+    players = players[~players[PLAYER].isin(exclude_players)]
+
+    player_data: dict[str, dict[str, tuple[float, str]]] = {}
     for _, row in players.iterrows():
-        pos = row[POSITION]
+        pos: str = row[POSITION]
         if pos not in player_data:
             player_data[pos] = {}
         player_data[pos][row[PLAYER]] = (row[PROJECTION], row[TEAM])
 
-    lineup_results = []
-    previous_lineups = []
+    lineup_results: list[dict[str, Any]] = []
+    previous_lineups: list[list[tuple[str, str]]] = []
 
     for lineup_num in range(1, MAX_LINEUPS + 1):
-        prob = LpProblem('Fantasy', LpMaximize)
+        prob: LpProblem = LpProblem('Fantasy', LpMaximize)
 
-        player_vars = {}
+        player_vars: dict[str, dict[str, LpVariable]] = {}
         for pos, players in player_data.items():
             player_vars[pos] = LpVariable.dicts(f'{pos}_players', players.keys(), cat='Binary')
 
@@ -48,13 +72,13 @@ def calculate_lineups(lineup_type, output_file, csv_file):
 
         # Enforce lineup constraints (how many players from each position)
         for pos, count in lineup_type.items():
-            prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count, f'{pos}_constraint'
+            prob += (
+                lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count,
+                f'{pos}_constraint',
+            )
 
         # One player per team
-        teams = set()
-        for pos, players in player_data.items():
-            for player, (_, team) in players.items():
-                teams.add(team)
+        teams: set[str] = {team for pos, players in player_data.items() for player, (_, team) in players.items()}
         for team in teams:
             prob += (
                 lpSum(
@@ -69,6 +93,13 @@ def calculate_lineups(lineup_type, output_file, csv_file):
                 f'Team_{team}_constraint',
             )
 
+        # Enforce must-include players
+        for must_include in must_include_players:
+            for pos in player_vars:
+                if must_include in player_vars[pos]:
+                    prob += player_vars[pos][must_include] == 1, f'must_include_{must_include}_{lineup_num}'
+                    break
+
         # Add each unique lineup only once
         for counter, prev_lineup in enumerate(previous_lineups):
             prob += (
@@ -78,37 +109,43 @@ def calculate_lineups(lineup_type, output_file, csv_file):
 
         prob.solve(PULP_CBC_CMD(msg=0))  # Suppress noisy output
 
-        current_lineup_players = [
+        current_lineup_players: list[tuple[str, str]] = [
             (pos, player) for pos in player_vars for player, var in player_vars[pos].items() if var.varValue == 1
         ]
 
-        # only find unique lineups up to MAX_LINEUPS
+        # Only find unique lineups up to MAX_LINEUPS
         if not current_lineup_players or len(previous_lineups) >= MAX_LINEUPS:
             break
 
         # Add the current lineup's players to the list of previous lineups
         previous_lineups.append(current_lineup_players)
 
-        lineup = {'Lineup #': lineup_num}
-        total_score = 0
+        lineup: dict[str, Any] = {'Lineup #': lineup_num}
+        total_score: float = 0.0
 
-        for column_count, (pos, player) in enumerate(current_lineup_players):
+        for column_count, (pos, player) in enumerate(current_lineup_players, start=1):
             proj, _ = player_data[pos][player]
-            column_count = column_count + 1
             lineup[f'Player {column_count} Position'] = pos
             lineup[f'Player {column_count} Name'] = player
             lineup[f'Player {column_count} Projected Points'] = proj
             total_score += proj
 
-        lineup['Total Score'] = '{0:.1f}'.format(total_score)
+        lineup['Total Score'] = f'{total_score:.1f}'
         lineup_results.append(lineup)
 
-    pd.DataFrame(lineup_results).to_csv(output_file + '.csv', index=False, header=True)
+    pd.DataFrame(lineup_results).to_csv(f'{output_file}.csv', index=False, header=True)
 
 
-def generate_lineup_files(csv_file):
+def generate_lineup_files(
+    csv_file: str,
+    must_include_players: list[str] | None = None,
+    exclude_players: list[str] | None = None,
+) -> None:
+    must_include_players = must_include_players or []
+    exclude_players = exclude_players or []
+
     for name, config in lineup_configs.items():
-        calculate_lineups(config, name, csv_file)
+        calculate_lineups(config, name, csv_file, must_include_players, exclude_players)
 
     print('Lineup files created')
 
@@ -127,9 +164,13 @@ def generate_lineup_files(csv_file):
 
 
 if __name__ == '__main__':
-    start_time = time.time()
-    file_name = 'playoff.csv'
-    generate_lineup_files(file_name)
-    end_time = time.time()
+    start_time: float = time.time()
+    file_name: str = 'playoff.csv'
+
+    must_include = []
+    exclude_list = []
+
+    generate_lineup_files(file_name, must_include_players=must_include, exclude_players=exclude_list)
+    end_time: float = time.time()
 
     print(f'Total execution time: {end_time - start_time:.2f} seconds')
