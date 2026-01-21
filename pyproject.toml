@@ -5,7 +5,7 @@ description = "DraftKings lineup optimizer using linear programming"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "pandas==3.0.0rc2",
+    "pandas==3.0.0",
     "pulp==3.3.0",
     "pydantic==2.12.5",
     "pytest==9.0.2",
