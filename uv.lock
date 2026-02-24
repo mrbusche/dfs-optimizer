@@ -41,7 +41,7 @@ dependencies = [
 requires-dist = [
     { name = "pandas", specifier = "==3.0.1" },
     { name = "pulp", specifier = "==3.3.0" },
-    { name = "pydantic", specifier = "==2.13.0b1" },
+    { name = "pydantic", specifier = "==2.13.0b2" },
     { name = "pytest", specifier = "==9.0.2" },
     { name = "ruff", specifier = "==0.15.2" },
 ]
@@ -143,7 +143,7 @@ wheels = [
 
 [[package]]
 name = "pydantic"
-version = "2.13.0b1"
+version = "2.13.0b2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-types" },
@@ -151,9 +151,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d8/0f/5e76f97d7fd901a060f9e911d4bad01d5651f01cf92c761ae637f2fc3311/pydantic-2.13.0b1.tar.gz", hash = "sha256:4d2b645d6e7173e5c6e1fb7f9875caea8f186580e4ca0cb515a85f38151776d0", size = 835120, upload-time = "2026-02-23T17:58:21.879Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/71/0e0cffabd25021b7245b69133b9c10c41b06960e4629739643df96a17174/pydantic-2.13.0b2.tar.gz", hash = "sha256:255b95518090cd7090b605ef975957b07f724778f71dafc850a7442e088e7b99", size = 835671, upload-time = "2026-02-24T17:07:44.343Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/2d/030cf7eaee007f2075f9a6c7a02cd8151cc5f7c5e4a35a91fe104b01fd59/pydantic-2.13.0b1-py3-none-any.whl", hash = "sha256:4217dd70afa2bf63295996acfe9133ccd5b767eaf1c3dd8e0c5d4ea58293d26f", size = 468061, upload-time = "2026-02-23T17:58:19.973Z" },
+    { url = "https://files.pythonhosted.org/packages/53/c5/4d39af2fbf81f04a5acf8cdd9add3085129ca35eb8ba21b5b42c96803924/pydantic-2.13.0b2-py3-none-any.whl", hash = "sha256:42a3dee97ad2b50b7489ad4fe8dfec509cb613487da9a3c19d480f0880e223bc", size = 468371, upload-time = "2026-02-24T17:07:42.545Z" },
 ]
 
 [[package]]
