@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "pandas==3.0.2",
-    "pulp==3.3.0",
+    "pulp==4.0.0a2",
     "pydantic==2.13.0b3",
     "pytest==9.0.2",
     "ruff==0.15.9",
