@@ -9,7 +9,7 @@ dependencies = [
     "pulp==3.3.0",
     "pydantic==2.13.0b3",
     "pytest==9.0.3",
-    "ruff==0.15.9",
+    "ruff==0.15.10",
 ]
 
 [tool.pytest.ini_options]
