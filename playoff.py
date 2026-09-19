@@ -4,7 +4,7 @@ import time
 from typing import Any
 
 import pandas as pd
-from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
+from pulp import HiGHS, LpMaximize, LpProblem, LpVariable, lpSum
 
 POSITION: str = 'Pos'
 PROJECTION: str = 'Total Points'
@@ -57,7 +57,7 @@ def calculate_lineups(
 
         player_vars: dict[str, dict[str, LpVariable]] = {}
         for pos, players in player_data.items():
-            player_vars[pos] = LpVariable.dicts(f'{pos}_players', players.keys(), cat='Binary')
+            player_vars[pos] = prob.add_variable_dicts(f'{pos}_players', players.keys(), cat='Binary')
 
         prob += (
             lpSum(
@@ -79,9 +79,9 @@ def calculate_lineups(
 
         # Enforce must-include players
         for must_include in must_include_players:
-            for pos in player_vars:
-                if must_include in player_vars[pos]:
-                    prob += player_vars[pos][must_include] == 1, f'must_include_{must_include}_{lineup_num}'
+            for pos, position_players in player_vars.items():
+                if must_include in position_players:
+                    prob += position_players[must_include] == 1, f'must_include_{must_include}_{lineup_num}'
                     break
 
         # Add each unique lineup only once
@@ -91,10 +91,13 @@ def calculate_lineups(
                 f'unique_lineup_{lineup_num}_{counter}',
             )
 
-        prob.solve(PULP_CBC_CMD(msg=0))  # Suppress noisy output
+        prob.solve(HiGHS(msg=False))  # Suppress noisy output
 
         current_lineup_players: list[tuple[str, str]] = [
-            (pos, player) for pos in player_vars for player, var in player_vars[pos].items() if var.varValue == 1
+            (pos, player)
+            for pos in player_vars
+            for player, var in player_vars[pos].items()
+            if var.varValue is not None and var.varValue > 0.5
         ]
 
         # Only find unique lineups up to MAX_LINEUPS

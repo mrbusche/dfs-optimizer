@@ -131,18 +131,14 @@ def test_only_use_players():
         # Include enough players from each position to form a valid lineup
         only_use = [
             'Lamar Jackson',
-            'Josh Allen',  # QBs
-            'Derrick Henry',
-            'Saquon Barkley',
+            'Gardner Minshew',  # QBs
+            'Chase from Paw Patrol',
             'Alvin and the Chipmunks',  # RBs
-            'CeeDee Lamb',
-            "Ja'Marr Chase",
-            'Tyreek Hill',
             'Chris Olave',  # WRs
-            'Trey McBride',
-            'Mike Gesicki',  # TEs
-            'Ravens',
-            'Titans',
+            'Cedric Tillman',
+            'Jakobi Meyers',
+            'AJ Barner',  # TEs
+            'Cardinals',  # DST
         ]
 
         lineup_config = LineupConfig(QB=1, RB=2, WR=3, TE=1, DST=1)
