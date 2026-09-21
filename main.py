@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
-from pulp import PULP_CBC_CMD, LpMaximize, LpProblem, LpVariable, lpSum
+from pulp import HiGHS, LpMaximize, LpProblem, lpSum
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 POSITION = 'DK Pos'
@@ -188,7 +188,7 @@ def calculate_lineups(
 
         player_vars = {}
         for pos, players_dict in player_data.items():
-            player_vars[pos] = LpVariable.dicts(f'{pos}_players', players_dict.keys(), cat='Binary')
+            player_vars[pos] = prob.add_variable_dicts(f'{pos}_players', players_dict.keys(), cat='Binary')
 
         prob += (
             lpSum(
@@ -222,9 +222,9 @@ def calculate_lineups(
 
         # Enforce must-include players
         for must_include in params.must_include_players:
-            for pos in player_vars:
-                if must_include in player_vars[pos]:
-                    prob += player_vars[pos][must_include] == 1, f'must_include_{must_include}'
+            for pos, position_players in player_vars.items():
+                if must_include in position_players:
+                    prob += position_players[must_include] == 1, f'must_include_{must_include}'
                     break
 
         # Add unique lineup constraints
@@ -234,10 +234,13 @@ def calculate_lineups(
                 f'unique_lineup_{lineup_num}_{counter}',
             )
 
-        prob.solve(PULP_CBC_CMD(msg=False))
+        prob.solve(HiGHS(msg=False))
 
         current_lineup_players = [
-            (pos, player) for pos in player_vars for player, var in player_vars[pos].items() if var.varValue == 1
+            (pos, player)
+            for pos in player_vars
+            for player, var in player_vars[pos].items()
+            if var.varValue is not None and var.varValue > 0.5
         ]
 
         if not current_lineup_players or len(previous_lineups) >= MAX_LINEUPS:
