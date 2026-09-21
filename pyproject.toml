@@ -5,13 +5,15 @@ description = "DraftKings lineup optimizer using linear programming"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "highspy>=1.15.1",
-    "pandas==3.0.6",
-    "pulp==4.0.0a12",
-    "pydantic==2.14.0b2",
-    "pytest==9.1.1",
-    "ruff==0.16.8",
+  "highspy==1.15.1",
+  "pandas==3.0.6",
+  "python-dotenv==1.0.1",
+  "pulp==4.0.0a12",
+  "pydantic==2.14.0b2",
 ]
+
+[dependency-groups]
+dev = ["pytest==9.1.1", "pytest-cov==7.1.0", "ruff==0.16.8", "ty==0.0.82"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -20,9 +22,13 @@ python_files = ["test_*.py", "*_test.py"]
 [tool.ruff]
 line-length = 120
 indent-width = 4
+target-version = "py314"
 
 [tool.ruff.format]
 quote-style = "single"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.ruff.lint]
+ignore = []

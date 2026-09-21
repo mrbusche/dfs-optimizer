@@ -12,6 +12,9 @@ This project use `uv`, [Installing uv](https://docs.astral.sh/uv/getting-started
 
 `python main.py`
 
+The input file defaults to `draftkings.csv`. To use a different file, set
+`FILE_NAME` in a `.env` file, for example `FILE_NAME=custom.csv`.
+
 3 files will be generated
 
 1. four_wr.csv
