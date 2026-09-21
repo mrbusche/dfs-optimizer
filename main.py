@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
 from pulp import HiGHS, LpMaximize, LpProblem, lpSum
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+load_dotenv()
 
 POSITION = 'DK Pos'
 PROJECTION = 'DK Proj'
@@ -356,7 +360,7 @@ def generate_lineup_files(
 
 if __name__ == '__main__':
     start_time = time.time()
-    file_name = Path('draftkings.csv')
+    file_name = Path(os.getenv('FILE_NAME') or 'draftkings.csv')
 
     # Specify players that must be included in all lineups
     must_include = []
