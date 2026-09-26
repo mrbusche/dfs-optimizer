@@ -55,7 +55,10 @@ def newest_dk_file() -> str:
         raise FileNotFoundError(
             f"No DraftKings projection file starting with '{DK_FILE_PREFIX}' found in {downloads_dir}"
         )
-    return str(max(matching_files, key=lambda path: path.stat().st_mtime))
+    def modified_time(path: Path) -> float:
+        return path.stat().st_mtime
+
+    return str(max(matching_files, key=modified_time))
 
 
 def normalize_name(name: str) -> str:

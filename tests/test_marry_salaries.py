@@ -5,6 +5,7 @@ import pytest
 
 MODULE_PATH = Path(__file__).parents[1] / 'marry-salaries.py'
 SPEC = importlib.util.spec_from_file_location('marry_salaries', MODULE_PATH)
+assert SPEC is not None and SPEC.loader is not None
 marry_salaries = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(marry_salaries)
 
