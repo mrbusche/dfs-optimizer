@@ -55,6 +55,7 @@ def newest_dk_file() -> str:
         raise FileNotFoundError(
             f"No DraftKings projection file starting with '{DK_FILE_PREFIX}' found in {downloads_dir}"
         )
+
     def modified_time(path: Path) -> float:
         return path.stat().st_mtime
 
@@ -128,6 +129,11 @@ def match_dfs_players(
         .assign(**{'DK Value Numeric': dk_value})
         .sort_values('Extracted Value', ascending=False)
     )
+    unchanged_players = (
+        merged_df[(merged_df['Extracted Value'] == dk_value) & (merged_df['Extracted Value'] > -1)]
+        .assign(**{'DK Value Numeric': dk_value})
+        .sort_values('Extracted Value', ascending=False)
+    )
 
     # Place both salary columns side-by-side
     cols = merged_df.columns.tolist()
@@ -140,6 +146,10 @@ def match_dfs_players(
     print(f"Successfully matched {len(merged_df)} players -> '{output_file}'")
     print('Players with higher Extracted Value:')
     for _, player in qualifying_players.iterrows():
+        print(f'{player["Player"]}: Extracted Value={player["Extracted Value"]}, DK Value={player["DK Value Numeric"]}')
+    print()
+    print('Players with unchanged positive Value:')
+    for _, player in unchanged_players.iterrows():
         print(f'{player["Player"]}: Extracted Value={player["Extracted Value"]}, DK Value={player["DK Value Numeric"]}')
 
 
