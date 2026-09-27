@@ -21,6 +21,12 @@ TOTAL_SCORE = 'Total Score'
 SALARY_CAP = 50000
 MAX_LINEUPS = 10
 
+# Base (non-flex) roster requirements for a standard DK lineup. Any position whose
+# lineup_config count exceeds its base count here is considered the "flex" position
+# for that lineup configuration (the extra slot may be filled by any RB/WR/TE).
+BASE_POSITION_COUNTS = {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'DST': 1}
+FLEX_ELIGIBLE_POSITIONS = ('RB', 'WR', 'TE')
+
 
 class Player(BaseModel):
     """Represents a single player with their stats"""
@@ -98,11 +104,28 @@ class OptimizationParams(BaseModel):
     must_include_players: list[str] = Field(default_factory=list)
     only_use_players: list[str] = Field(default_factory=list)
     exclude_players: list[str] = Field(default_factory=list)
+    only_use_qb: list[str] = Field(default_factory=list)
+    only_use_rb: list[str] = Field(default_factory=list)
+    only_use_wr: list[str] = Field(default_factory=list)
+    only_use_te: list[str] = Field(default_factory=list)
 
-    @field_validator('must_include_players', 'only_use_players', 'exclude_players', mode='before')
+    @field_validator(
+        'must_include_players',
+        'only_use_players',
+        'exclude_players',
+        'only_use_qb',
+        'only_use_rb',
+        'only_use_wr',
+        'only_use_te',
+        mode='before',
+    )
     @classmethod
     def convert_none_to_empty_list(cls, v):
         return v if v is not None else []
+
+    def position_only_use_map(self) -> dict[str, list[str]]:
+        """Map of position -> only-use restriction list for that position"""
+        return {'QB': self.only_use_qb, 'RB': self.only_use_rb, 'WR': self.only_use_wr, 'TE': self.only_use_te}
 
 
 lineup_configs = {
@@ -159,6 +182,21 @@ def calculate_lineups(
     if missing_exclude:
         print(f'WARNING: Exclude players not found in CSV: {", ".join(missing_exclude)}')
 
+    position_only_use = params.position_only_use_map()
+    for pos, restriction in position_only_use.items():
+        missing_pos = sorted(set(restriction) - all_player_names) if restriction else []
+        if missing_pos:
+            print(f'WARNING: Only-use {pos} players not found in CSV: {", ".join(missing_pos)}')
+
+    # Determine which position (if any) serves as the flex slot for this lineup config,
+    # i.e. the position whose required count exceeds the standard, non-flex base count.
+    lineup_dict = lineup_config.model_dump(by_alias=True)
+    flex_position = next(
+        (pos for pos in FLEX_ELIGIBLE_POSITIONS if lineup_dict.get(pos, 0) > BASE_POSITION_COUNTS.get(pos, 0)),
+        None,
+    )
+    flex_restriction = position_only_use.get(flex_position) if flex_position else None
+
     # Filter players based on parameters
     filtered_players = players
 
@@ -167,6 +205,14 @@ def calculate_lineups(
 
     if params.exclude_players:
         filtered_players = [p for p in filtered_players if p.name not in params.exclude_players]
+
+    # Apply per-position only-use restrictions. The flex position (if it has a
+    # restriction) is left unfiltered here since its flex slot must still allow any
+    # RB/WR/TE; a minimum-count constraint enforces the restriction on its base slots.
+    for pos, restriction in position_only_use.items():
+        if restriction and pos != flex_position:
+            allowed = set(restriction)
+            filtered_players = [p for p in filtered_players if p.position != pos or p.name in allowed]
 
     remaining_player_names = {p.name for p in filtered_players}
     unmet_must_include = sorted(set(params.must_include_players) - remaining_player_names)
@@ -219,10 +265,24 @@ def calculate_lineups(
         )
 
         # Enforce lineup constraints (how many players from each position)
-        lineup_dict = lineup_config.model_dump(by_alias=True)
         for pos, count in lineup_dict.items():
             if pos in player_vars and count > 0:
                 prob += lpSum([player_vars[pos][player] for player in player_vars[pos]]) == count, f'{pos}_constraint'
+
+        # Enforce the base (non-flex) only-use restriction on the flex position: its
+        # required base-count slots must come from the restricted list, while the
+        # remaining flex slot stays open to any player at that position.
+        if flex_position and flex_restriction and flex_position in player_vars:
+            restricted_vars = [
+                player_vars[flex_position][player]
+                for player in player_vars[flex_position]
+                if player in flex_restriction
+            ]
+            if restricted_vars:
+                prob += (
+                    lpSum(restricted_vars) >= BASE_POSITION_COUNTS[flex_position],
+                    f'{flex_position}_only_use_base_constraint',
+                )
 
         # Enforce must-include players
         for must_include in params.must_include_players:
@@ -289,6 +349,10 @@ def generate_lineup_files(
     only_use_players: Sequence[str] | None = None,
     exclude_players: Sequence[str] | None = None,
     allow_two_te: bool = True,
+    only_use_qb: Sequence[str] | None = None,
+    only_use_rb: Sequence[str] | None = None,
+    only_use_wr: Sequence[str] | None = None,
+    only_use_te: Sequence[str] | None = None,
 ) -> None:
     csv_path = Path(csv_file)
 
@@ -315,6 +379,10 @@ def generate_lineup_files(
         must_include_players=list(must_include_players or []),
         only_use_players=list(only_use_players or []),
         exclude_players=list(exclude_players or []),
+        only_use_qb=list(only_use_qb or []),
+        only_use_rb=list(only_use_rb or []),
+        only_use_wr=list(only_use_wr or []),
+        only_use_te=list(only_use_te or []),
     )
 
     # --- Player Filtering ---
@@ -324,6 +392,14 @@ def generate_lineup_files(
         print(f'Only-use player pool requested: {", ".join(params.only_use_players)}')
     if params.exclude_players:
         print(f'Exclude players requested: {", ".join(params.exclude_players)}')
+    for pos_label, restriction in (
+        ('QB', params.only_use_qb),
+        ('RB', params.only_use_rb),
+        ('WR', params.only_use_wr),
+        ('TE', params.only_use_te),
+    ):
+        if restriction:
+            print(f'Only-use {pos_label} player pool requested: {", ".join(restriction)}')
 
     all_lineups_results = []
     for name, config in lineup_configs.items():
@@ -371,9 +447,26 @@ if __name__ == '__main__':
     # Specify players to exclude from all lineups
     exclude = []
 
+    # Restrict the base (non-flex) slots for a specific position to only these players
+    # (empty list = no restriction). The flex slot still allows any RB/WR/TE.
+    only_use_qb = []
+    only_use_rb = []
+    only_use_wr = []
+    only_use_te = []
+
     two_te_allowed = True
 
-    generate_lineup_files(file_name, must_include, only_use, exclude, allow_two_te=two_te_allowed)
+    generate_lineup_files(
+        file_name,
+        must_include,
+        only_use,
+        exclude,
+        allow_two_te=two_te_allowed,
+        only_use_qb=only_use_qb,
+        only_use_rb=only_use_rb,
+        only_use_wr=only_use_wr,
+        only_use_te=only_use_te,
+    )
     end_time = time.time()
 
     print(f'Total execution time: {end_time - start_time:.2f} seconds')
