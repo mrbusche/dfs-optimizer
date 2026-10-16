@@ -8,12 +8,12 @@ dependencies = [
   "highspy==1.15.1",
   "pandas==3.1.0rc0",
   "python-dotenv==1.2.4",
-  "pulp==4.0.0",
-  "pydantic==2.14.0",
+  "pulp==4.0.1",
+  "pydantic==2.14.1",
 ]
 
 [dependency-groups]
-dev = ["pytest==9.1.1", "pytest-cov==7.1.0", "ruff==0.17.0", "ty==0.0.85"]
+dev = ["pytest==9.1.1", "pytest-cov==7.1.0", "ruff==0.17.1", "ty==0.0.89"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
