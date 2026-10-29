@@ -1,4 +1,5 @@
 import csv
+import os
 import re
 from pathlib import Path
 
@@ -10,6 +11,8 @@ NAME_ALIASES = {
 }
 
 DK_FILE_PREFIX = 'DraftKings NFL DFS Projections -- Main Slate'
+
+SEASON_DFS_PATTERN = 'season-dfs-2026-*.csv'
 VALUE_PER_THOUSAND = {'QB': 3, 'RB': 2, 'WR': 2, 'TE': 2, 'DST': 2}
 
 
@@ -22,23 +25,33 @@ def calculate_extracted_value(dk_value: float, dk_salary: float, extracted_salar
     return round(dk_value + (dk_salary - extracted_salary) * value_per_thousand / 1000, 1)
 
 
+def newest_season_dfs_file() -> str:
+    downloads_dir = Path.home() / 'Downloads'
+    matching_files: list[Path] = [path for path in downloads_dir.glob(SEASON_DFS_PATTERN) if path.is_file()]
+    if not matching_files:
+        raise FileNotFoundError(f"No file matching '{SEASON_DFS_PATTERN}' found in {downloads_dir}")
+    return str(max(matching_files, key=os.path.getmtime))
+
+
 def export_player_salaries_to_csv(
     input_file: str,
     output_file: str = 'player_salaries.csv',
 ) -> None:
-    with open(input_file, 'r', encoding='utf-8') as f:
-        text = f.read()
+    season_df = pd.read_csv(input_file)
 
-    pattern = re.compile(
-        r'^(?:RB|WR|QB|TE|DST)\s*\n+^([^\n]+?)\s*\n+(?:.*?\n+)*?^\$([0-9,]+)',
-        re.MULTILINE,
-    )
-
-    records = []
-    for match in pattern.finditer(text):
-        name = match.group(1).strip()
-        salary = int(match.group(2).replace(',', ''))
-        records.append((name, salary))
+    records = [
+        (
+            str(name).strip().rsplit(' ', 1)[-1] if position == 'DST' else str(name).strip(),
+            int(salary),
+        )
+        for name, salary, position in zip(
+            season_df['Player Name'],
+            season_df['Season DFS Salary'],
+            season_df['Position'],
+            strict=True,
+        )
+        if pd.notna(name) and pd.notna(salary)
+    ]
 
     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
@@ -125,7 +138,7 @@ def match_dfs_players(
     ]
 
     qualifying_players = (
-        merged_df[(merged_df['Extracted Value'] > dk_value) & (merged_df['Extracted Value'] > 1)]
+        merged_df[(merged_df['Extracted Value'] > dk_value) & (merged_df['Extracted Value'] > -1)]
         .assign(**{'DK Value Numeric': dk_value})
         .sort_values('Extracted Value', ascending=False)
     )
@@ -154,5 +167,5 @@ def match_dfs_players(
 
 
 if __name__ == '__main__':
-    export_player_salaries_to_csv('Season DFS.txt', 'player_salaries.csv')
+    export_player_salaries_to_csv(newest_season_dfs_file(), 'player_salaries.csv')
     match_dfs_players()
