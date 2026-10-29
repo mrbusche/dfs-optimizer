@@ -1,4 +1,5 @@
 import csv
+import os
 import re
 from pathlib import Path
 
@@ -26,10 +27,10 @@ def calculate_extracted_value(dk_value: float, dk_salary: float, extracted_salar
 
 def newest_season_dfs_file() -> str:
     downloads_dir = Path.home() / 'Downloads'
-    matching_files = [path for path in downloads_dir.glob(SEASON_DFS_PATTERN) if path.is_file()]
+    matching_files: list[Path] = [path for path in downloads_dir.glob(SEASON_DFS_PATTERN) if path.is_file()]
     if not matching_files:
         raise FileNotFoundError(f"No file matching '{SEASON_DFS_PATTERN}' found in {downloads_dir}")
-    return str(max(matching_files, key=lambda path: path.stat().st_mtime))
+    return str(max(matching_files, key=os.path.getmtime))
 
 
 def export_player_salaries_to_csv(
