@@ -31,6 +31,26 @@ def test_calculate_extracted_value_rejects_unknown_position():
         marry_salaries.calculate_extracted_value(1.0, 5000, 5000, 'K')
 
 
+def test_export_player_salaries_matches_full_dst_name_to_mascot(tmp_path):
+    season_file = tmp_path / 'season.csv'
+    salaries_file = tmp_path / 'salaries.csv'
+    dk_file = tmp_path / 'projections.csv'
+    output_file = tmp_path / 'matched.csv'
+    pd.DataFrame(
+        [{'Player Name': 'Tennessee Titans', 'Season DFS Salary': 3000, 'Position': 'DST'}]
+    ).to_csv(season_file, index=False)
+    pd.DataFrame(
+        [{'Player': 'Titans', 'DK Salary': 3200, 'DK Value': 3.0, 'DK Pos': 'DST'}]
+    ).to_csv(dk_file, index=False)
+
+    marry_salaries.export_player_salaries_to_csv(str(season_file), str(salaries_file))
+    marry_salaries.match_dfs_players(str(dk_file), str(salaries_file), str(output_file))
+
+    matched = pd.read_csv(output_file)
+    assert matched.loc[0, 'Player'] == 'Titans'
+    assert matched.loc[0, 'Extracted Salary'] == 3000
+
+
 def test_match_dfs_players_prints_unchanged_values_above_negative_one(tmp_path, capsys):
     dk_file = tmp_path / 'projections.csv'
     salaries_file = tmp_path / 'salaries.csv'
