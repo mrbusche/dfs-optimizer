@@ -8,6 +8,7 @@ import pandas as pd
 NAME_ALIASES = {
     'Nick Singleton': 'Nicholas Singleton',
     'Matt Hibner': 'Matthew Hibner',
+    'Mitch Tinsley': 'Mitchell Tinsley',
 }
 
 DK_FILE_PREFIX = 'DraftKings NFL DFS Projections -- Main Slate'
@@ -107,6 +108,12 @@ def match_dfs_players(
     # Rename salary column from player_salaries to avoid name collision
     sal_df = sal_df.rename(columns={'Salary': 'Extracted Salary'})
 
+    unmatched_df = dk_df[~dk_df['join_key'].isin(sal_df['join_key'])].drop(columns=['join_key'])
+    print(f'Unmatched players: {len(unmatched_df)}')
+    for _, player in unmatched_df.iterrows():
+        print(f'{player["Player"]} ({player["DK Pos"]}, {player["Team"]}): DK Salary={player["DK Salary"]}')
+    print()
+
     # Merge projection data with the extracted salaries
     merged_df = pd.merge(
         dk_df,
@@ -137,16 +144,9 @@ def match_dfs_players(
         )
     ]
 
-    qualifying_players = (
-        merged_df[(merged_df['Extracted Value'] > dk_value) & (merged_df['Extracted Value'] > -1)]
-        .assign(**{'DK Value Numeric': dk_value})
-        .sort_values('Extracted Value', ascending=False)
-    )
-    unchanged_players = (
-        merged_df[(merged_df['Extracted Value'] == dk_value) & (merged_df['Extracted Value'] > -1)]
-        .assign(**{'DK Value Numeric': dk_value})
-        .sort_values('Extracted Value', ascending=False)
-    )
+    players_to_display = merged_df[
+        (merged_df['Extracted Value'] >= dk_value) & (merged_df['Extracted Value'] > -1)
+    ].assign(**{'DK Value Numeric': dk_value})
 
     # Place both salary columns side-by-side
     cols = merged_df.columns.tolist()
@@ -157,13 +157,19 @@ def match_dfs_players(
 
     merged_df.to_csv(output_file, index=False)
     print(f"Successfully matched {len(merged_df)} players -> '{output_file}'")
-    print('Players with higher Extracted Value:')
-    for _, player in qualifying_players.iterrows():
-        print(f'{player["Player"]}: Extracted Value={player["Extracted Value"]}, DK Value={player["DK Value Numeric"]}')
-    print()
-    print('Players with unchanged positive Value:')
-    for _, player in unchanged_players.iterrows():
-        print(f'{player["Player"]}: Extracted Value={player["Extracted Value"]}, DK Value={player["DK Value Numeric"]}')
+    print('Players with higher or unchanged Extracted Value by position:')
+    for position in ('QB', 'RB', 'WR', 'TE', 'DST'):
+        position_players = players_to_display[players_to_display['DK Pos'] == position].sort_values(
+            'Extracted Value', ascending=False
+        )
+        if position_players.empty:
+            continue
+        print(position)
+        print('Player, DK Value, Extracted Value, Difference')
+        for _, player in position_players.iterrows():
+            difference = round(player['Extracted Value'] - player['DK Value Numeric'], 1)
+            print(f'{player["Player"]}, {player["DK Value Numeric"]}, {player["Extracted Value"]}, {difference}')
+        print()
 
 
 if __name__ == '__main__':
