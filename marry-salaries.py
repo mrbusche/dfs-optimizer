@@ -8,6 +8,7 @@ import pandas as pd
 NAME_ALIASES = {
     'Nick Singleton': 'Nicholas Singleton',
     'Matt Hibner': 'Matthew Hibner',
+    'Mitch Tinsley': 'Mitchell Tinsley',
 }
 
 DK_FILE_PREFIX = 'DraftKings NFL DFS Projections -- Main Slate'
@@ -106,6 +107,12 @@ def match_dfs_players(
 
     # Rename salary column from player_salaries to avoid name collision
     sal_df = sal_df.rename(columns={'Salary': 'Extracted Salary'})
+
+    unmatched_df = dk_df[~dk_df['join_key'].isin(sal_df['join_key'])].drop(columns=['join_key'])
+    print(f'Unmatched players: {len(unmatched_df)}')
+    for _, player in unmatched_df.iterrows():
+        print(f'{player["Player"]} ({player["DK Pos"]}, {player["Team"]}): DK Salary={player["DK Salary"]}')
+    print()
 
     # Merge projection data with the extracted salaries
     merged_df = pd.merge(
