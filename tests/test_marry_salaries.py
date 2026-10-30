@@ -57,7 +57,7 @@ def test_match_dfs_players_prints_unchanged_values_above_negative_one(tmp_path, 
     output_file = tmp_path / 'matched.csv'
     pd.DataFrame(
         [
-            {'Player': 'Positive Same', 'DK Salary': 5000, 'DK Value': 4.0, 'DK Pos': 'RB'},
+            {'Player': 'Positive Same', 'DK Salary': 5000, 'DK Value': 4.0, 'DK Pos': 'QB'},
             {'Player': 'Zero Same', 'DK Salary': 5000, 'DK Value': 0.0, 'DK Pos': 'RB'},
             {'Player': 'Negative Same', 'DK Salary': 5000, 'DK Value': -0.5, 'DK Pos': 'RB'},
             {'Player': 'Boundary Same', 'DK Salary': 5000, 'DK Value': -1.0, 'DK Pos': 'RB'},
@@ -77,9 +77,10 @@ def test_match_dfs_players_prints_unchanged_values_above_negative_one(tmp_path, 
     marry_salaries.match_dfs_players(str(dk_file), str(salaries_file), str(output_file))
 
     output = capsys.readouterr().out
-    assert 'Players with unchanged positive Value:' in output
-    assert 'Positive Same: Extracted Value=4.0, DK Value=4.0' in output
-    assert 'Zero Same: Extracted Value=0.0, DK Value=0.0' in output
-    assert 'Negative Same: Extracted Value=-0.5, DK Value=-0.5' in output
+    assert 'Players with higher or unchanged Extracted Value by position:' in output
+    assert (
+        'QB\nPlayer, DK Value, Extracted Value, Difference\nPositive Same, 4.0, 4.0, 0.0\n\n'
+        'RB\nPlayer, DK Value, Extracted Value, Difference\nHigher Value, 2.0, 3.0, 1.0\n'
+        'Zero Same, 0.0, 0.0, 0.0\nNegative Same, -0.5, -0.5, 0.0'
+    ) in output
     assert 'Boundary Same:' not in output
-    assert 'Players with higher Extracted Value:\nHigher Value: Extracted Value=3.0, DK Value=2.0' in output
