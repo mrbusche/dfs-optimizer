@@ -5,7 +5,7 @@ description = "DraftKings lineup optimizer using linear programming"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-  "highspy==1.15.1",
+  "highspy==1.16.0",
   "pandas==3.1.1",
   "python-dotenv==1.2.4",
   "pulp==4.2.0",
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest==9.2.0", "pytest-cov==7.1.0", "ruff==0.17.4", "ty==0.0.99"]
+dev = ["pytest==9.2.0", "pytest-cov==7.1.0", "ruff==0.17.5", "ty==0.0.103"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
